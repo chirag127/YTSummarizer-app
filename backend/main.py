@@ -150,7 +150,7 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-
+            print(info)
             # Extract relevant information
             video_info = {
                 'title': info.get('title', 'Title Unavailable'),
