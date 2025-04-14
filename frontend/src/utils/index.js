@@ -19,7 +19,7 @@ export const extractVideoId = (url) => {
             return parts[parts.length - 1].split("?")[0];
         }
 
-        // Handle youtube.com format
+        // Handle youtube.com and m.youtube.com format
         try {
             const urlObj = new URL(url);
             if (urlObj.hostname.includes("youtube.com")) {

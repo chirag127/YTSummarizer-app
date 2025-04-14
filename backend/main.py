@@ -114,7 +114,7 @@ class SummaryUpdate(BaseModel):
 # Helper functions
 def is_valid_youtube_url(url: str) -> bool:
     """Validate if the URL is a YouTube URL."""
-    youtube_regex = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+$'
+    youtube_regex = r'^(https?://)?(www\.|m\.)?(youtube\.com|youtu\.be)/.+$'
     return bool(re.match(youtube_regex, str(url)))
 
 import requests
@@ -127,7 +127,7 @@ def extract_video_id(url: str) -> str:
     parsed_url = urlparse(url)
     if parsed_url.netloc == 'youtu.be':
         return parsed_url.path.lstrip('/')
-    elif parsed_url.netloc in ('www.youtube.com', 'youtube.com'):
+    elif parsed_url.netloc in ('www.youtube.com', 'youtube.com', 'm.youtube.com'):
         if parsed_url.path == '/watch':
             return parse_qs(parsed_url.query)['v'][0]
         elif parsed_url.path.startswith('/embed/'):

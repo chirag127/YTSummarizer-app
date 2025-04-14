@@ -106,7 +106,7 @@ export const TAB_ICONS = {
 
 // YouTube URL Regex
 export const YOUTUBE_URL_REGEX =
-    /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/;
+    /^(https?:\/\/)?(www\.|m\.)?(youtube\.com|youtu\.be)\/.+$/;
 
 // Default TTS Settings
 export const DEFAULT_TTS_SETTINGS = {
