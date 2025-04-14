@@ -143,7 +143,7 @@ const HistoryScreen = ({ navigation }) => {
         if (isLoading) {
             return (
                 <View style={styles.emptyContainer}>
-                    <ActivityIndicator size="large" color={COLORS.primary} />
+                    <ActivityIndicator size={36} color={COLORS.primary} />
                     <Text style={styles.emptyText}>Loading summaries...</Text>
                 </View>
             );

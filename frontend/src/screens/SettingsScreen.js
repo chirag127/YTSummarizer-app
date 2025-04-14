@@ -267,7 +267,7 @@ const SettingsScreen = () => {
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
+                <ActivityIndicator size={36} color={COLORS.primary} />
                 <Text style={styles.loadingText}>Loading settings...</Text>
             </View>
         );

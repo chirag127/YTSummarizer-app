@@ -81,7 +81,7 @@ class SummaryLength(str):
     LONG = "Long"
 
 class YouTubeURL(BaseModel):
-    url: AnyHttpUrl
+    url: str
     summary_type: str = SummaryType.BRIEF
     summary_length: str = SummaryLength.MEDIUM
 
