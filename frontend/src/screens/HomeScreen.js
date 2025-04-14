@@ -17,8 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Import components, services, and utilities
-import { validateYouTubeUrl, generateSummary } from "../services/api";
-import { isValidYouTubeUrl } from "../utils";
+import { generateSummary } from "../services/api";
 import {
     COLORS,
     SPACING,
@@ -83,8 +82,8 @@ const HomeScreen = ({ navigation }) => {
 
     // Handle URL submission
     const handleSubmit = async () => {
-        // Client-side validation
-        if (!url.trim() || !isValidYouTubeUrl(url)) {
+        // Basic validation - just check if URL is not empty
+        if (!url.trim()) {
             setIsValidUrl(false);
             return;
         }
@@ -92,23 +91,6 @@ const HomeScreen = ({ navigation }) => {
         setIsLoading(true);
 
         try {
-            // Validate URL with backend
-            const validationResult = await validateYouTubeUrl(url);
-
-            if (!validationResult.valid) {
-                Alert.alert("Invalid URL", "Please enter a valid YouTube URL.");
-                setIsValidUrl(false);
-                return;
-            }
-
-            if (!validationResult.has_transcript) {
-                Alert.alert(
-                    "No Transcript Available",
-                    "This video does not have captions or transcripts available for summarization."
-                );
-                return;
-            }
-
             // Generate summary
             const summary = await generateSummary(
                 url,
@@ -120,11 +102,20 @@ const HomeScreen = ({ navigation }) => {
             navigation.navigate(SCREENS.SUMMARY, { summary });
         } catch (error) {
             console.error("Error:", error);
-            Alert.alert(
-                "Error",
-                error.response?.data?.detail ||
-                    "An error occurred while processing your request."
-            );
+
+            // Handle network errors more gracefully
+            if (error.message === "Network Error") {
+                Alert.alert(
+                    "Network Error",
+                    "Unable to connect to the server. Please check your internet connection and try again."
+                );
+            } else {
+                Alert.alert(
+                    "Error",
+                    error.response?.data?.detail ||
+                        "An error occurred while processing your request."
+                );
+            }
         } finally {
             setIsLoading(false);
         }

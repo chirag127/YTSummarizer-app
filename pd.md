@@ -227,7 +227,8 @@ This PRD provides a comprehensive guide for building the YouTube Summarizer appl
 
 The following is the example of gemini 2.0 flash-lite API call:
 
-```pythonimport base64
+```python
+import base64
 import os
 from google import genai
 from google.genai import types
