@@ -364,6 +364,8 @@ async def create_summary(youtube_url: YouTubeURL, background_tasks: BackgroundTa
     # Extract video information
     video_info = await extract_video_info(url)
 
+    print(video_info)
+
     if not video_info.get('transcript'):
         raise HTTPException(
             status_code=400,
