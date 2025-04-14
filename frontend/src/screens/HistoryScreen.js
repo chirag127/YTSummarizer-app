@@ -40,7 +40,15 @@ const HistoryScreen = ({ navigation }) => {
             setSummaries(data);
         } catch (error) {
             console.error("Error fetching summaries:", error);
-            setError("Failed to load summaries. Please try again.");
+
+            // Handle network errors more gracefully
+            if (error.message === "Network Error") {
+                setError(
+                    "Network error. Unable to connect to the server. Please check your internet connection."
+                );
+            } else {
+                setError("Failed to load summaries. Please try again.");
+            }
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
@@ -85,7 +93,25 @@ const HistoryScreen = ({ navigation }) => {
                             );
                         } catch (error) {
                             console.error("Error deleting summary:", error);
-                            Alert.alert("Error", "Failed to delete summary.");
+
+                            // Handle network errors more gracefully
+                            if (error.message === "Network Error") {
+                                // Still remove from local state even if network error
+                                setSummaries((prevSummaries) =>
+                                    prevSummaries.filter(
+                                        (summary) => summary.id !== id
+                                    )
+                                );
+                                Alert.alert(
+                                    "Network Error",
+                                    "Summary removed from local view, but may not be deleted from the server due to network issues."
+                                );
+                            } else {
+                                Alert.alert(
+                                    "Error",
+                                    "Failed to delete summary."
+                                );
+                            }
                         }
                     },
                 },
