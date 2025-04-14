@@ -7,7 +7,7 @@ import os
 import re
 import yt_dlp
 # Import for client
-from google import genai
+import google
 # Import for configuration types
 from google.genai import types
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -263,7 +263,7 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
 
     try:
         # Create Gemini client
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        client = google.genai.Client(api_key=GEMINI_API_KEY)
         model = "gemini-2.0-flash-lite"
 
         # Adjust prompt based on summary type and length
