@@ -1,8 +1,7 @@
 import axios from "axios";
 
 // Base URL for API calls - change this to your backend URL
-// You can use your local IP address instead of localhost for testing on physical devices
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -10,7 +9,6 @@ const api = axios.create({
     headers: {
         "Content-Type": "application/json",
     },
-    timeout: 10000, // 10 seconds timeout
 });
 
 // Add response interceptor to handle errors globally
