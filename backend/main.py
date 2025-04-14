@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, HttpUrl
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 import os
 import re
@@ -81,7 +81,7 @@ class SummaryLength(str):
     LONG = "Long"
 
 class YouTubeURL(BaseModel):
-    url: HttpUrl
+    url: AnyHttpUrl
     summary_type: str = SummaryType.BRIEF
     summary_length: str = SummaryLength.MEDIUM
 
