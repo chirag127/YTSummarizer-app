@@ -7,3 +7,4 @@ yt-dlp
 google-generativeai
 python-multipart
 requests
+google-genai
