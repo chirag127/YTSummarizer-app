@@ -6,8 +6,10 @@ from datetime import datetime
 import os
 import re
 import yt_dlp
-import google.generativeai as genai
-from google.generativeai import types
+# Import for client
+from google import genai
+# Import for configuration types
+from google.genai import types
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 import logging
@@ -40,8 +42,6 @@ DATABASE_NAME = os.getenv("DATABASE_NAME", "youtube_summarizer")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     logger.warning("GEMINI_API_KEY not set. Summarization will not work.")
-else:
-    genai.configure(api_key=GEMINI_API_KEY)
 
 # Database connection
 client = None
@@ -262,6 +262,8 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
         return "API key not configured. Unable to generate summary."
 
     try:
+        # Create Gemini client
+        client = genai.Client(api_key=GEMINI_API_KEY)
         model = "gemini-2.0-flash-lite"
 
         # Adjust prompt based on summary type and length
@@ -286,23 +288,24 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
         {transcript}
         """
 
+        # Create content using the new API format
         contents = [
             types.Content(
                 role="user",
-                parts=[
-                    types.Part.from_text(text=prompt),
-                ],
-            ),
+                parts=[types.Part.from_text(text=prompt)]
+            )
         ]
 
+        # Configure generation parameters
         generate_content_config = types.GenerateContentConfig(
-            response_mime_type="text/plain",
+            response_mime_type="text/plain"
         )
 
-        response = genai.models.generate_content(
+        # Generate content
+        response = client.models.generate_content(
             model=model,
             contents=contents,
-            config=generate_content_config,
+            config=generate_content_config
         )
 
         return response.text
