@@ -93,6 +93,7 @@ class Summary(BaseModel):
     summary_text: str
     summary_type: str
     summary_length: str
+    transcript_language: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -104,6 +105,7 @@ class SummaryResponse(BaseModel):
     summary_text: str
     summary_type: str
     summary_length: str
+    transcript_language: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -156,14 +158,17 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
                 'title': info.get('title', 'Title Unavailable'),
                 'thumbnail': info.get('thumbnail', None),
                 'transcript': None,
+                'transcript_language': None,
                 'video_id': info.get('id', extract_video_id(url))
             }
 
             # Try to get transcript/subtitles
             transcript_text = ""
+            transcript_lang = None
 
             # First try to get manual subtitles
             if info.get('subtitles'):
+                # Try English subtitles first (preferred language)
                 subs = info.get('subtitles', {}).get('en', [])
                 if subs:
                     for format_dict in subs:
@@ -185,12 +190,55 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
                                         clean_line = re.sub(r'<[^>]+>', '', line)
                                         if clean_line.strip():
                                             transcript_text += clean_line.strip() + ' '
+                                    transcript_lang = 'en'
                                     break
                             except Exception as e:
-                                logger.error(f"Error downloading subtitles: {e}")
+                                logger.error(f"Error downloading English subtitles: {e}")
+
+                # If no English subtitles, try any other available language
+                if not transcript_text:
+                    # Get all available subtitle languages
+                    available_langs = list(info.get('subtitles', {}).keys())
+                    logger.info(f"Available subtitle languages: {available_langs}")
+
+                    # Try each language until we find one that works
+                    for lang in available_langs:
+                        if lang == 'en':  # Already tried English
+                            continue
+
+                        subs = info.get('subtitles', {}).get(lang, [])
+                        if subs:
+                            for format_dict in subs:
+                                if format_dict.get('ext') in ['vtt', 'srt']:
+                                    try:
+                                        # Download the subtitle file
+                                        sub_url = format_dict.get('url')
+                                        response = requests.get(sub_url)
+                                        if response.status_code == 200:
+                                            # Basic parsing of VTT/SRT format
+                                            content = response.text
+                                            # Remove timing information and formatting
+                                            lines = content.split('\n')
+                                            for line in lines:
+                                                # Skip timing lines, empty lines, and metadata
+                                                if re.match(r'^\d+:\d+:\d+', line) or re.match(r'^\d+$', line) or line.strip() == '' or line.startswith('WEBVTT'):
+                                                    continue
+                                                # Remove HTML tags
+                                                clean_line = re.sub(r'<[^>]+>', '', line)
+                                                if clean_line.strip():
+                                                    transcript_text += clean_line.strip() + ' '
+                                            transcript_lang = lang
+                                            logger.info(f"Using subtitles in language: {lang}")
+                                            break
+                                    except Exception as e:
+                                        logger.error(f"Error downloading {lang} subtitles: {e}")
+
+                        if transcript_text:  # If we found a transcript, stop trying other languages
+                            break
 
             # If no manual subtitles, try auto-generated captions
             if not transcript_text and info.get('automatic_captions'):
+                # Try English auto-captions first (preferred language)
                 auto_subs = info.get('automatic_captions', {}).get('en', [])
                 if auto_subs:
                     for format_dict in auto_subs:
@@ -212,15 +260,59 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
                                         clean_line = re.sub(r'<[^>]+>', '', line)
                                         if clean_line.strip():
                                             transcript_text += clean_line.strip() + ' '
+                                    transcript_lang = 'en'
                                     break
                             except Exception as e:
-                                logger.error(f"Error downloading auto captions: {e}")
+                                logger.error(f"Error downloading English auto captions: {e}")
+
+                # If no English auto-captions, try any other available language
+                if not transcript_text:
+                    # Get all available auto-caption languages
+                    available_langs = list(info.get('automatic_captions', {}).keys())
+                    logger.info(f"Available auto-caption languages: {available_langs}")
+
+                    # Try each language until we find one that works
+                    for lang in available_langs:
+                        if lang == 'en':  # Already tried English
+                            continue
+
+                        auto_subs = info.get('automatic_captions', {}).get(lang, [])
+                        if auto_subs:
+                            for format_dict in auto_subs:
+                                if format_dict.get('ext') in ['vtt', 'srt']:
+                                    try:
+                                        # Download the subtitle file
+                                        sub_url = format_dict.get('url')
+                                        response = requests.get(sub_url)
+                                        if response.status_code == 200:
+                                            # Basic parsing of VTT/SRT format
+                                            content = response.text
+                                            # Remove timing information and formatting
+                                            lines = content.split('\n')
+                                            for line in lines:
+                                                # Skip timing lines, empty lines, and metadata
+                                                if re.match(r'^\d+:\d+:\d+', line) or re.match(r'^\d+$', line) or line.strip() == '' or line.startswith('WEBVTT'):
+                                                    continue
+                                                # Remove HTML tags
+                                                clean_line = re.sub(r'<[^>]+>', '', line)
+                                                if clean_line.strip():
+                                                    transcript_text += clean_line.strip() + ' '
+                                            transcript_lang = lang
+                                            logger.info(f"Using auto-captions in language: {lang}")
+                                            break
+                                    except Exception as e:
+                                        logger.error(f"Error downloading {lang} auto captions: {e}")
+
+                        if transcript_text:  # If we found a transcript, stop trying other languages
+                            break
 
             # If we still don't have a transcript, try using the YouTube transcript API as a fallback
             if not transcript_text and video_info['video_id']:
+                video_id = video_info['video_id']
+
+                # First try English
                 try:
-                    # Try to get transcript using YouTube's transcript API
-                    video_id = video_info['video_id']
+                    # Try to get English transcript using YouTube's transcript API
                     transcript_url = f"https://www.youtube.com/api/timedtext?lang=en&v={video_id}"
                     response = requests.get(transcript_url)
                     if response.status_code == 200 and response.text:
@@ -232,18 +324,60 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
                             # Decode HTML entities
                             decoded_text = text.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#39;', "'")
                             transcript_text += decoded_text + ' '
+                        transcript_lang = 'en'
                 except Exception as e:
-                    logger.error(f"Error using YouTube transcript API: {e}")
+                    logger.error(f"Error using YouTube transcript API (English): {e}")
+
+                # If English transcript not available, try to get a list of available languages
+                if not transcript_text:
+                    try:
+                        # Get list of available languages
+                        lang_list_url = f"https://www.youtube.com/api/timedtext?type=list&v={video_id}"
+                        response = requests.get(lang_list_url)
+                        if response.status_code == 200 and response.text:
+                            # Extract language codes from XML
+                            lang_codes = re.findall(r'lang_code="([^"]+)"', response.text)
+                            logger.info(f"Available transcript languages: {lang_codes}")
+
+                            # Try each language until we find one that works
+                            for lang in lang_codes:
+                                if lang == 'en':  # Already tried English
+                                    continue
+
+                                try:
+                                    transcript_url = f"https://www.youtube.com/api/timedtext?lang={lang}&v={video_id}"
+                                    response = requests.get(transcript_url)
+                                    if response.status_code == 200 and response.text:
+                                        # Parse the XML response
+                                        content = response.text
+                                        # Extract text from XML
+                                        text_matches = re.findall(r'<text[^>]*>(.*?)</text>', content)
+                                        for text in text_matches:
+                                            # Decode HTML entities
+                                            decoded_text = text.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#39;', "'")
+                                            transcript_text += decoded_text + ' '
+                                        transcript_lang = lang
+                                        logger.info(f"Using transcript in language: {lang}")
+                                        break
+                                except Exception as e:
+                                    logger.error(f"Error using YouTube transcript API for language {lang}: {e}")
+
+                                if transcript_text:  # If we found a transcript, stop trying other languages
+                                    break
+                    except Exception as e:
+                        logger.error(f"Error getting available transcript languages: {e}")
 
             # If we have a transcript, add it to the video info
             if transcript_text:
                 video_info['transcript'] = transcript_text.strip()
+                video_info['transcript_language'] = transcript_lang
 
             # If we still don't have a transcript, try a simulated transcript with video description
             if not video_info.get('transcript') and info.get('description'):
                 description = info.get('description', '')
                 if len(description) > 200:  # Only use description if it's substantial
                     video_info['transcript'] = f"Video Description: {description}"
+                    video_info['transcript_language'] = info.get('language') or 'unknown'
                     video_info['is_description_only'] = True
 
             return video_info
@@ -283,6 +417,7 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
         Based on the following transcript from a YouTube video, {type_instruction.get(summary_type, "create a summary")}.
         The summary should be approximately {length_words.get(summary_length, "200-300 words")} in length.
         Format the output in Markdown with appropriate headings, bullet points, and emphasis where needed.
+        IMPORTANT: Always generate the summary in English, regardless of the language of the transcript.
 
         TRANSCRIPT:
         {transcript}
@@ -343,6 +478,7 @@ async def validate_url(youtube_url: YouTubeURL):
             "has_transcript": True,
             "title": video_info.get('title'),
             "thumbnail": video_info.get('thumbnail'),
+            "transcript_language": video_info.get('transcript_language'),
             "message": "Valid YouTube URL with available transcript."
         }
     except Exception as e:
@@ -391,6 +527,7 @@ async def create_summary(youtube_url: YouTubeURL, background_tasks: BackgroundTa
         "summary_text": summary_text,
         "summary_type": youtube_url.summary_type,
         "summary_length": youtube_url.summary_length,
+        "transcript_language": video_info.get('transcript_language'),
         "created_at": now,
         "updated_at": now
     }
@@ -460,6 +597,7 @@ async def update_summary(summary_id: str, update_data: SummaryUpdate, db=Depends
             "summary_text": summary_text,
             "summary_type": summary_type,
             "summary_length": summary_length,
+            "transcript_language": video_info.get('transcript_language'),
             "updated_at": now
         }
 
