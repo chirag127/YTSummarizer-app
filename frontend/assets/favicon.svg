@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="64" height="64" rx="12" fill="#6200EA" />
+  
+  <!-- YouTube Play Button -->
+  <path d="M44.5 32c0 0.69-0.383 1.32-1 1.64l-16 8C27.223 41.805 26.924 41.875 26.625 41.875c-0.266 0-0.531-0.055-0.781-0.164C25.266 41.422 25 40.82 25 40.188V24.188c0-0.633 0.328-1.234 0.906-1.523 0.578-0.297 1.266-0.242 1.781 0.134l16 8C44.617 30.68 44.5 31.31 44.5 32z" fill="#FFFFFF"/>
+  
+  <!-- Document with Text Lines -->
+  <rect x="19.5" y="22.125" width="25" height="19.75" rx="1.25" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="21.375" y="24.625" width="21.25" height="1.25" rx="0.625" fill="#6200EA" opacity="0.7"/>
+  <rect x="21.375" y="27.125" width="17.5" height="1.25" rx="0.625" fill="#6200EA" opacity="0.7"/>
+  <rect x="21.375" y="29.625" width="20" height="1.25" rx="0.625" fill="#6200EA" opacity="0.7"/>
+  <rect x="21.375" y="32.125" width="18.75" height="1.25" rx="0.625" fill="#6200EA" opacity="0.7"/>
+  <rect x="21.375" y="34.625" width="21.25" height="1.25" rx="0.625" fill="#6200EA" opacity="0.7"/>
+  <rect x="21.375" y="37.125" width="16.25" height="1.25" rx="0.625" fill="#6200EA" opacity="0.7"/>
+  
+  <!-- Sound Wave (for TTS) -->
+  <path d="M48.75 27.5v9M51.25 25v14M53.75 27.5v9M56.25 30v4" stroke="#FFFFFF" stroke-width="0.75" stroke-linecap="round"/>
+</svg>
