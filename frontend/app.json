@@ -83,6 +83,16 @@
           "label": "Summarize with YTSummarizer"
         },
         {
+          "action": "PROCESS_TEXT",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "text/plain"
+          },
+          "label": "Summarize with YTSummarizer"
+        },
+        {
           "action": "SEND",
           "category": [
             "DEFAULT"
@@ -95,10 +105,25 @@
         {
           "action": "SEND",
           "category": [
-            "DEFAULT"
+            "DEFAULT",
+            "BROWSABLE"
           ],
           "data": {
             "mimeType": "*/*",
+            "scheme": "https",
+            "host": "*.youtube.com"
+          },
+          "label": "Summarize YouTube Video"
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT",
+            "BROWSABLE",
+            "ALTERNATIVE"
+          ],
+          "data": {
+            "mimeType": "text/*",
             "scheme": "https",
             "host": "*.youtube.com"
           },
@@ -119,7 +144,8 @@
         {
           "action": "SEND",
           "category": [
-            "DEFAULT"
+            "DEFAULT",
+            "BROWSABLE"
           ],
           "data": {
             "mimeType": "*/*",
@@ -127,6 +153,27 @@
             "host": "youtu.be"
           },
           "label": "Summarize YouTube Video"
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ],
+          "data": {
+            "mimeType": "text/*"
+          },
+          "label": "Summarize Text (YouTube Links)"
+        },
+        {
+          "action": "SEND_MULTIPLE",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "text/*"
+          },
+          "label": "Summarize Links"
         }
       ]
     },

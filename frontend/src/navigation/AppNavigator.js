@@ -44,7 +44,7 @@ const AppNavigator = () => {
     const handleDeepLink = (event) => {
         const { url } = event;
         if (url) {
-            console.log("Deep link received:", url);
+            console.log("Deep link received in AppNavigator:", url);
 
             // Check if it's a YouTube URL
             if (
@@ -54,17 +54,23 @@ const AppNavigator = () => {
             ) {
                 // Navigate to home screen and pass the URL
                 if (navigationRef.current) {
+                    console.log("Navigating to HomeTab with URL:", url);
+
                     // Navigate to HomeTab first to ensure we're in the right stack
                     navigationRef.current.navigate("HomeTab");
 
-                    // Then set the URL in the HomeScreen
+                    // Then set the URL in the HomeScreen with a delay to ensure navigation completes
                     setTimeout(() => {
+                        console.log("Setting URL in HomeScreen:", url);
                         navigationRef.current.navigate({
                             name: SCREENS.HOME,
-                            params: { sharedUrl: url },
+                            params: {
+                                sharedUrl: url,
+                                timestamp: new Date().getTime(), // Add timestamp to force update
+                            },
                             merge: true,
                         });
-                    }, 100);
+                    }, 300); // Increased delay for more reliable navigation
                 }
             }
         }
@@ -78,8 +84,14 @@ const AppNavigator = () => {
 
             // Check if we have an initial URL
             if (initialURL) {
-                console.log("App opened with URL:", initialURL);
-                handleDeepLink({ url: initialURL });
+                console.log(
+                    "App opened with URL in handleSharedText:",
+                    initialURL
+                );
+                // Process the URL with a slight delay to ensure app is fully loaded
+                setTimeout(() => {
+                    handleDeepLink({ url: initialURL });
+                }, 500);
                 return;
             }
 
@@ -88,17 +100,26 @@ const AppNavigator = () => {
                 // iOS share handling is primarily done through universal links
                 // and the URL handling above
                 console.log("Checking for iOS shared content...");
+
+                // On iOS, we can also check for shared text via Clipboard as a fallback
+                try {
+                    // This would require a native module in a real app
+                    // For now, we'll rely on the URL handling
+                } catch (err) {
+                    console.error("Error checking iOS shared content:", err);
+                }
             }
 
             // On Android, check if app was opened from share intent
             if (Platform.OS === "android") {
                 try {
-                    // This is a simplified approach - in a real app, you'd use
-                    // the Android native module to get the shared text
                     console.log("Checking for Android shared content...");
 
-                    // The initialURL should already handle most cases, but we can add
-                    // additional checks here if needed
+                    // In a real implementation, you would use a native module to get the shared text
+                    // For example, using react-native-receive-sharing-intent or a custom native module
+
+                    // For now, we'll rely on the URL handling via Linking.getInitialURL()
+                    // which should work for most share intents that include a URL
                 } catch (err) {
                     console.error("Error checking Android intent:", err);
                 }

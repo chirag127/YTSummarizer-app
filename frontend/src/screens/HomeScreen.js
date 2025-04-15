@@ -180,26 +180,37 @@ const HomeScreen = ({ navigation, route }) => {
 
     // Handle shared URLs from navigation params
     useEffect(() => {
+        // Check if we have a shared URL from navigation params
         if (route.params?.sharedUrl) {
-            console.log(
-                "Received shared URL from navigation:",
-                route.params.sharedUrl
-            );
             const sharedUrl = route.params.sharedUrl;
+            const timestamp = route.params.timestamp || 0; // Get timestamp if available
+
+            console.log(
+                "Received shared URL in HomeScreen:",
+                sharedUrl,
+                "Timestamp:",
+                timestamp
+            );
+
+            // Set the URL in the input field
             setUrl(sharedUrl);
 
             // Automatically process the shared URL after a short delay
             // This ensures the URL is set in state before submission
             const timer = setTimeout(() => {
-                console.log("Auto-processing shared URL:", sharedUrl);
+                console.log(
+                    "Auto-processing shared URL in HomeScreen:",
+                    sharedUrl
+                );
                 if (sharedUrl) {
+                    // Process the URL directly without relying on state
                     processUrl(sharedUrl);
                 }
-            }, 500);
+            }, 800); // Longer delay for more reliable processing
 
             return () => clearTimeout(timer);
         }
-    }, [route.params?.sharedUrl, processUrl]);
+    }, [route.params?.sharedUrl, route.params?.timestamp, processUrl]);
 
     // Render summary type options
     const renderSummaryTypeOptions = () => {
