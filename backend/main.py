@@ -153,7 +153,7 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            print(info)
+            # print(info)
             # Extract relevant information
             video_info = {
                 'title': info.get('title', 'Title Unavailable'),
@@ -504,7 +504,7 @@ async def create_summary(youtube_url: YouTubeURL, background_tasks: BackgroundTa
     # Extract video information
     video_info = await extract_video_info(url)
 
-    print(video_info)
+    # print(video_info)
 
     if not video_info.get('transcript'):
         raise HTTPException(
