@@ -19,7 +19,27 @@
         "applinks:youtube.com",
         "applinks:m.youtube.com",
         "applinks:youtu.be"
-      ]
+      ],
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "ytsummarizer"
+            ]
+          }
+        ],
+        "LSApplicationQueriesSchemes": [
+          "youtube",
+          "http",
+          "https"
+        ],
+        "NSUserActivityTypes": [
+          "INSendMessageIntent",
+          "INSearchForMessagesIntent"
+        ]
+      },
+      "usesIcloudStorage": false,
+      "bundleIdentifier": "com.chirag127.YTSummarizer2reactnativeexpoapp"
     },
     "android": {
       "adaptiveIcon": {

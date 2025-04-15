@@ -48,7 +48,18 @@ const HomeScreen = ({ navigation, route }) => {
             if (initialUrl) {
                 console.log("App opened from URL:", initialUrl);
                 setUrl(initialUrl);
-                // We'll let the useEffect handle submission after URL is set
+
+                // Process the URL immediately if it's a YouTube URL
+                if (
+                    initialUrl.includes("youtube.com/watch") ||
+                    initialUrl.includes("youtu.be/") ||
+                    initialUrl.includes("m.youtube.com/watch")
+                ) {
+                    // Use a timeout to ensure state is updated
+                    setTimeout(() => {
+                        processUrl(initialUrl);
+                    }, 500);
+                }
             }
 
             // For Android, we need to check for shared text
@@ -56,11 +67,47 @@ const HomeScreen = ({ navigation, route }) => {
                 // This is a simplified approach - in a real app, you'd use
                 // the Android native module to get the shared text
                 console.log("Checking for Android shared text...");
+                // Additional Android-specific handling can be added here
+            }
+
+            // For iOS, check for shared content
+            if (Platform.OS === "ios") {
+                console.log("Checking for iOS shared content...");
+                // iOS-specific handling can be added here if needed
             }
         } catch (error) {
             console.error("Error handling shared text:", error);
         }
     };
+
+    // Helper function to process a URL directly
+    const processUrl = React.useCallback(
+        async (urlToProcess) => {
+            if (!urlToProcess || !urlToProcess.trim()) {
+                return;
+            }
+
+            setIsLoading(true);
+            try {
+                console.log("Processing URL directly:", urlToProcess);
+                const summary = await generateSummary(
+                    urlToProcess,
+                    summaryType,
+                    summaryLength
+                );
+                navigation.navigate(SCREENS.SUMMARY, { summary });
+            } catch (error) {
+                console.error("Error processing URL:", error);
+                Alert.alert(
+                    "Error",
+                    "Failed to process the URL. Please try again."
+                );
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [summaryType, summaryLength, navigation]
+    );
 
     // Load last used settings and check for shared content
     useEffect(() => {
@@ -119,58 +166,40 @@ const HomeScreen = ({ navigation, route }) => {
         }
     };
 
-    // Handle URL submission
-    const handleSubmit = async () => {
+    // Handle URL submission from the UI
+    const handleSubmit = () => {
         // Basic validation - just check if URL is not empty
         if (!url.trim()) {
             setIsValidUrl(false);
             return;
         }
 
-        setIsLoading(true);
-
-        try {
-            // Generate summary
-            const summary = await generateSummary(
-                url,
-                summaryType,
-                summaryLength
-            );
-
-            // Navigate to summary screen
-            navigation.navigate(SCREENS.SUMMARY, { summary });
-        } catch (error) {
-            console.error("Error:", error);
-
-            // Handle network errors more gracefully
-            if (error.message === "Network Error") {
-                Alert.alert(
-                    "Network Error",
-                    "Unable to connect to the server. Please check your internet connection and try again."
-                );
-            } else {
-                Alert.alert(
-                    "Error",
-                    error.response?.data?.detail ||
-                        "An error occurred while processing your request."
-                );
-            }
-        } finally {
-            setIsLoading(false);
-        }
+        // Use the common processUrl function
+        processUrl(url);
     };
 
-    // Update the useEffect to use the handleSubmit function
+    // Handle shared URLs from navigation params
     useEffect(() => {
         if (route.params?.sharedUrl) {
-            console.log("Received shared URL:", route.params.sharedUrl);
-            setUrl(route.params.sharedUrl);
-            // Automatically submit when a URL is shared
-            setTimeout(() => {
-                if (url) handleSubmit();
-            }, 500); // Small delay to ensure state is updated
+            console.log(
+                "Received shared URL from navigation:",
+                route.params.sharedUrl
+            );
+            const sharedUrl = route.params.sharedUrl;
+            setUrl(sharedUrl);
+
+            // Automatically process the shared URL after a short delay
+            // This ensures the URL is set in state before submission
+            const timer = setTimeout(() => {
+                console.log("Auto-processing shared URL:", sharedUrl);
+                if (sharedUrl) {
+                    processUrl(sharedUrl);
+                }
+            }, 500);
+
+            return () => clearTimeout(timer);
         }
-    }, [route.params?.sharedUrl, url]);
+    }, [route.params?.sharedUrl, processUrl]);
 
     // Render summary type options
     const renderSummaryTypeOptions = () => {

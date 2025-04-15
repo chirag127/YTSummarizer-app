@@ -78,15 +78,29 @@ const AppNavigator = () => {
 
             // Check if we have an initial URL
             if (initialURL) {
+                console.log("App opened with URL:", initialURL);
                 handleDeepLink({ url: initialURL });
                 return;
             }
 
+            // For iOS, we need to check if the app was opened from a share extension
+            if (Platform.OS === "ios") {
+                // iOS share handling is primarily done through universal links
+                // and the URL handling above
+                console.log("Checking for iOS shared content...");
+            }
+
             // On Android, check if app was opened from share intent
             if (Platform.OS === "android") {
-                const initialIntent = await Linking.getInitialURL();
-                if (initialIntent) {
-                    console.log("App opened from intent:", initialIntent);
+                try {
+                    // This is a simplified approach - in a real app, you'd use
+                    // the Android native module to get the shared text
+                    console.log("Checking for Android shared content...");
+
+                    // The initialURL should already handle most cases, but we can add
+                    // additional checks here if needed
+                } catch (err) {
+                    console.error("Error checking Android intent:", err);
                 }
             }
         } catch (error) {
