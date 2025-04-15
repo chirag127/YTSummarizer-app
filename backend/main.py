@@ -147,6 +147,7 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
         'skip_download': True,
         'writesubtitles': True,
         'writeautomaticsub': True,
+        'cookiefile': 'cookies.txt',
     }
 
     try:
