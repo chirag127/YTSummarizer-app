@@ -30,7 +30,7 @@ import {
 // Constants
 const LAST_SETTINGS_KEY = "last_summary_settings";
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, route }) => {
     // State
     const [url, setUrl] = useState("");
     const [isValidUrl, setIsValidUrl] = useState(true);
@@ -120,6 +120,15 @@ const HomeScreen = ({ navigation }) => {
             setIsLoading(false);
         }
     };
+
+    // Update the useEffect to use the handleSubmit function
+    useEffect(() => {
+        if (route.params?.sharedUrl) {
+            setUrl(route.params.sharedUrl);
+            // Uncomment the line below if you want to automatically submit when a URL is shared
+            // setTimeout(handleSubmit, 500); // Small delay to ensure state is updated
+        }
+    }, [route.params?.sharedUrl]);
 
     // Render summary type options
     const renderSummaryTypeOptions = () => {
