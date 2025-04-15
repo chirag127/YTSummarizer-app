@@ -16,6 +16,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
 
 // Import components, services, and utilities
 import { generateSummary } from "../services/api";
@@ -102,6 +103,20 @@ const HomeScreen = ({ navigation, route }) => {
     const handleUrlChange = (text) => {
         setUrl(text);
         setIsValidUrl(true); // Reset validation on change
+    };
+
+    // Handle clipboard paste
+    const handlePasteFromClipboard = async () => {
+        try {
+            const clipboardContent = await Clipboard.getStringAsync();
+            if (clipboardContent) {
+                setUrl(clipboardContent);
+                setIsValidUrl(true);
+            }
+        } catch (error) {
+            console.error("Error pasting from clipboard:", error);
+            Alert.alert("Error", "Failed to paste from clipboard");
+        }
     };
 
     // Handle URL submission
@@ -241,18 +256,32 @@ const HomeScreen = ({ navigation, route }) => {
                     </View>
 
                     <View style={styles.inputContainer}>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                !isValidUrl && styles.inputError,
-                            ]}
-                            placeholder="Paste YouTube URL here"
-                            value={url}
-                            onChangeText={handleUrlChange}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            keyboardType="url"
-                        />
+                        <View style={styles.inputRow}>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    !isValidUrl && styles.inputError,
+                                ]}
+                                placeholder="Paste YouTube URL here"
+                                value={url}
+                                onChangeText={handleUrlChange}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                keyboardType="url"
+                            />
+                            <TouchableOpacity
+                                style={styles.pasteButton}
+                                onPress={handlePasteFromClipboard}
+                                accessibilityLabel="Paste from clipboard"
+                                accessibilityHint="Pastes YouTube URL from clipboard"
+                            >
+                                <Ionicons
+                                    name="clipboard-outline"
+                                    size={24}
+                                    color={COLORS.primary}
+                                />
+                            </TouchableOpacity>
+                        </View>
                         {!isValidUrl && (
                             <Text style={styles.errorText}>
                                 Please enter a valid YouTube URL
@@ -317,7 +346,12 @@ const styles = StyleSheet.create({
     inputContainer: {
         marginBottom: SPACING.lg,
     },
+    inputRow: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
     input: {
+        flex: 1,
         height: 50,
         borderWidth: 1,
         borderColor: COLORS.border,
@@ -328,6 +362,18 @@ const styles = StyleSheet.create({
     },
     inputError: {
         borderColor: COLORS.error,
+    },
+    pasteButton: {
+        padding: SPACING.sm,
+        marginLeft: SPACING.sm,
+        borderRadius: 8,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        height: 50,
+        width: 50,
+        justifyContent: "center",
+        alignItems: "center",
     },
     errorText: {
         color: COLORS.error,
