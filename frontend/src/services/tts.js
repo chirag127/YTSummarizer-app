@@ -85,6 +85,9 @@ export const processTextForSpeech = (text) => {
         const words = sentence.split(/\s+/);
 
         words.forEach((word, wordIndex) => {
+            // Skip empty words
+            if (word.trim() === "") return;
+
             wordMap.push({
                 word,
                 sentenceIndex,
@@ -159,20 +162,60 @@ export const speakText = async (text, startSentenceIndex = 0) => {
                     const adjustedCharIndex = event.charIndex + startCharIndex;
 
                     // Find the word at this character index
-                    const currentWord = processedText.wordMap.find(
+                    // Look ahead by a small offset to account for the delay in boundary events
+                    const lookAheadOffset = 2; // Look ahead by 2 characters to predict the next word
+
+                    // First try to find the exact word
+                    let currentWord = processedText.wordMap.find(
                         (w) =>
                             adjustedCharIndex >= w.startChar &&
                             adjustedCharIndex <= w.endChar
                     );
 
+                    // If not found, try with the look-ahead offset
+                    if (!currentWord) {
+                        currentWord = processedText.wordMap.find(
+                            (w) =>
+                                adjustedCharIndex + lookAheadOffset >=
+                                    w.startChar &&
+                                adjustedCharIndex + lookAheadOffset <= w.endChar
+                        );
+                    }
+
+                    // If still not found, find the closest word
+                    if (!currentWord) {
+                        // Find the closest word by character index
+                        const sortedWords = [...processedText.wordMap].sort(
+                            (a, b) => {
+                                const distA = Math.min(
+                                    Math.abs(adjustedCharIndex - a.startChar),
+                                    Math.abs(adjustedCharIndex - a.endChar)
+                                );
+                                const distB = Math.min(
+                                    Math.abs(adjustedCharIndex - b.startChar),
+                                    Math.abs(adjustedCharIndex - b.endChar)
+                                );
+                                return distA - distB;
+                            }
+                        );
+
+                        if (sortedWords.length > 0) {
+                            currentWord = sortedWords[0];
+                        }
+                    }
+
                     if (currentWord) {
-                        onBoundaryCallback({
-                            ...event,
-                            charIndex: adjustedCharIndex,
-                            word: currentWord.word,
-                            sentenceIndex: currentWord.sentenceIndex,
-                            wordIndex: currentWord.wordIndex,
-                        });
+                        // Add a small delay to account for the boundary event timing
+                        // This helps synchronize the highlighting with the actual speech
+                        setTimeout(() => {
+                            onBoundaryCallback({
+                                ...event,
+                                charIndex: adjustedCharIndex,
+                                word: currentWord.word,
+                                sentenceIndex: currentWord.sentenceIndex,
+                                wordIndex: currentWord.wordIndex,
+                            });
+                        }, 0); // Minimal delay to put this at the end of the event queue
                     }
                 }
             },

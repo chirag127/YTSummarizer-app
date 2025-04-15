@@ -95,6 +95,7 @@ const SummaryScreen = ({ route, navigation }) => {
     useEffect(() => {
         setSpeechCallbacks({
             onBoundary: (event) => {
+                // Update the current word with the information from the event
                 setCurrentWord({
                     word: event.word,
                     sentenceIndex: event.sentenceIndex,
@@ -104,6 +105,8 @@ const SummaryScreen = ({ route, navigation }) => {
             },
             onStart: (sentenceIndex) => {
                 setCurrentSentence(sentenceIndex);
+                // Reset current word when starting speech
+                setCurrentWord(null);
             },
             onDone: () => {
                 setCurrentWord(null);
@@ -439,6 +442,10 @@ const SummaryScreen = ({ route, navigation }) => {
                                     {sentence
                                         .split(/\s+/)
                                         .map((word, wordIdx) => {
+                                            // Check if this word should be highlighted
+                                            // We need to make sure the word is not empty
+                                            if (word.trim() === "") return null;
+
                                             const isHighlighted =
                                                 currentWord &&
                                                 currentWord.sentenceIndex ===
@@ -591,9 +598,10 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
     highlightedWord: {
-        backgroundColor: "rgba(0, 123, 255, 0.2)",
+        backgroundColor: "rgba(0, 123, 255, 0.4)",
         borderRadius: 4,
-        fontWeight: "500",
+        fontWeight: "600",
+        color: COLORS.primary,
     },
     ttsNavigationContainer: {
         flexDirection: "row",
