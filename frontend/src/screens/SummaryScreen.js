@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     StyleSheet,
     View,
@@ -17,7 +17,14 @@ import Markdown from "react-native-markdown-display";
 
 // Import components, services, and utilities
 import { updateSummary } from "../services/api";
-import { speakText, stopSpeaking, isSpeaking } from "../services/tts";
+import {
+    speakText,
+    stopSpeaking,
+    isSpeaking,
+    setSpeechCallbacks,
+    clearSpeechCallbacks,
+    processTextForSpeech,
+} from "../services/tts";
 import {
     formatDate,
     truncateText,
@@ -49,6 +56,15 @@ const SummaryScreen = ({ route, navigation }) => {
         summary?.summary_length || SUMMARY_LENGTHS[1].id
     );
 
+    // TTS highlighting state
+    const [currentWord, setCurrentWord] = useState(null);
+    const [currentSentence, setCurrentSentence] = useState(0);
+    const [processedText, setProcessedText] = useState(null);
+
+    // Refs
+    const scrollViewRef = useRef(null);
+    const sentenceRefs = useRef({});
+
     // Set navigation title
     useEffect(() => {
         navigation.setOptions({
@@ -67,12 +83,66 @@ const SummaryScreen = ({ route, navigation }) => {
         return () => clearInterval(interval);
     }, []);
 
-    // Stop speaking when component unmounts
+    // Process text for TTS when summary changes
     useEffect(() => {
+        if (summary?.summary_text) {
+            const processed = processTextForSpeech(summary.summary_text);
+            setProcessedText(processed);
+        }
+    }, [summary]);
+
+    // Setup speech callbacks
+    useEffect(() => {
+        setSpeechCallbacks({
+            onBoundary: (event) => {
+                setCurrentWord({
+                    word: event.word,
+                    sentenceIndex: event.sentenceIndex,
+                    wordIndex: event.wordIndex,
+                });
+                setCurrentSentence(event.sentenceIndex);
+            },
+            onStart: (sentenceIndex) => {
+                setCurrentSentence(sentenceIndex);
+            },
+            onDone: () => {
+                setCurrentWord(null);
+                setIsPlaying(false);
+            },
+            onStopped: () => {
+                setCurrentWord(null);
+                setIsPlaying(false);
+            },
+        });
+
+        // Clean up when component unmounts
         return () => {
             stopSpeaking();
+            clearSpeechCallbacks();
         };
     }, []);
+
+    // Scroll to the current word being spoken
+    useEffect(() => {
+        if (
+            currentWord &&
+            scrollViewRef.current &&
+            sentenceRefs.current[currentWord.sentenceIndex]
+        ) {
+            // Get the sentence ref and measure its position
+            sentenceRefs.current[currentWord.sentenceIndex].measureLayout(
+                scrollViewRef.current,
+                (_, y) => {
+                    // Scroll to the position
+                    scrollViewRef.current.scrollTo({
+                        y: y,
+                        animated: true,
+                    });
+                },
+                () => console.log("Measurement failed")
+            );
+        }
+    }, [currentWord]);
 
     // Handle play/pause
     const handlePlayPause = async () => {
@@ -80,7 +150,33 @@ const SummaryScreen = ({ route, navigation }) => {
             await stopSpeaking();
             setIsPlaying(false);
         } else {
-            const success = await speakText(summary.summary_text);
+            const success = await speakText(
+                summary.summary_text,
+                currentSentence
+            );
+            setIsPlaying(success);
+        }
+    };
+
+    // Handle next sentence
+    const handleNextSentence = async () => {
+        if (
+            processedText &&
+            currentSentence < processedText.sentences.length - 1
+        ) {
+            const nextSentence = currentSentence + 1;
+            await stopSpeaking();
+            const success = await speakText(summary.summary_text, nextSentence);
+            setIsPlaying(success);
+        }
+    };
+
+    // Handle previous sentence
+    const handlePrevSentence = async () => {
+        if (processedText && currentSentence > 0) {
+            const prevSentence = currentSentence - 1;
+            await stopSpeaking();
+            const success = await speakText(summary.summary_text, prevSentence);
             setIsPlaying(success);
         }
     };
@@ -266,7 +362,10 @@ const SummaryScreen = ({ route, navigation }) => {
         <View style={styles.container}>
             {renderEditModal()}
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                ref={scrollViewRef}
+                contentContainerStyle={styles.scrollContent}
+            >
                 {/* Video Info */}
                 <View style={styles.videoInfoContainer}>
                     <Image
@@ -323,11 +422,108 @@ const SummaryScreen = ({ route, navigation }) => {
                 {/* Summary Content */}
                 <View style={styles.summaryContentContainer}>
                     <Text style={styles.summaryTitle}>Summary</Text>
-                    <Markdown style={markdownStyles}>
-                        {summary.summary_text}
-                    </Markdown>
+                    {processedText ? (
+                        <View>
+                            {processedText.sentences.map((sentence, index) => (
+                                <View
+                                    key={`sentence-${index}`}
+                                    ref={(ref) =>
+                                        (sentenceRefs.current[index] = ref)
+                                    }
+                                    style={[
+                                        styles.sentenceContainer,
+                                        currentSentence === index &&
+                                            styles.activeSentence,
+                                    ]}
+                                >
+                                    {sentence
+                                        .split(/\s+/)
+                                        .map((word, wordIdx) => {
+                                            const isHighlighted =
+                                                currentWord &&
+                                                currentWord.sentenceIndex ===
+                                                    index &&
+                                                currentWord.wordIndex ===
+                                                    wordIdx;
+
+                                            return (
+                                                <Text
+                                                    key={`word-${index}-${wordIdx}`}
+                                                    style={[
+                                                        styles.word,
+                                                        isHighlighted &&
+                                                            styles.highlightedWord,
+                                                    ]}
+                                                >
+                                                    {word}{" "}
+                                                </Text>
+                                            );
+                                        })}
+                                </View>
+                            ))}
+                        </View>
+                    ) : (
+                        <Markdown style={markdownStyles}>
+                            {summary.summary_text}
+                        </Markdown>
+                    )}
                 </View>
             </ScrollView>
+
+            {/* TTS Navigation Buttons */}
+            {isPlaying && (
+                <View style={styles.ttsNavigationContainer}>
+                    <TouchableOpacity
+                        style={[
+                            styles.ttsNavButton,
+                            currentSentence === 0 &&
+                                styles.ttsNavButtonDisabled,
+                        ]}
+                        onPress={handlePrevSentence}
+                        disabled={currentSentence === 0}
+                    >
+                        <Ionicons
+                            name="arrow-back"
+                            size={24}
+                            color={
+                                currentSentence === 0
+                                    ? COLORS.textSecondary
+                                    : COLORS.primary
+                            }
+                        />
+                        <Text style={styles.ttsNavButtonText}>Previous</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.ttsNavButton,
+                            processedText &&
+                                currentSentence ===
+                                    processedText.sentences.length - 1 &&
+                                styles.ttsNavButtonDisabled,
+                        ]}
+                        onPress={handleNextSentence}
+                        disabled={
+                            processedText &&
+                            currentSentence ===
+                                processedText.sentences.length - 1
+                        }
+                    >
+                        <Ionicons
+                            name="arrow-forward"
+                            size={24}
+                            color={
+                                processedText &&
+                                currentSentence ===
+                                    processedText.sentences.length - 1
+                                    ? COLORS.textSecondary
+                                    : COLORS.primary
+                            }
+                        />
+                        <Text style={styles.ttsNavButtonText}>Next</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Action Buttons */}
             <View style={styles.actionButtonsContainer}>
@@ -378,6 +574,49 @@ const SummaryScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
+    // TTS Highlighting styles
+    sentenceContainer: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        marginBottom: SPACING.md,
+    },
+    activeSentence: {
+        backgroundColor: "rgba(0, 123, 255, 0.05)",
+        borderRadius: 4,
+        padding: SPACING.xs,
+    },
+    word: {
+        fontSize: FONT_SIZES.md,
+        color: COLORS.text,
+        lineHeight: 22,
+    },
+    highlightedWord: {
+        backgroundColor: "rgba(0, 123, 255, 0.2)",
+        borderRadius: 4,
+        fontWeight: "500",
+    },
+    ttsNavigationContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingHorizontal: SPACING.lg,
+        paddingVertical: SPACING.sm,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.border,
+        backgroundColor: COLORS.background,
+    },
+    ttsNavButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: SPACING.sm,
+    },
+    ttsNavButtonDisabled: {
+        opacity: 0.5,
+    },
+    ttsNavButtonText: {
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.text,
+        marginLeft: SPACING.xs,
+    },
     container: {
         flex: 1,
         backgroundColor: COLORS.background,
