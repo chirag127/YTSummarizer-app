@@ -103,6 +103,41 @@ export const formatSummaryLength = (length) => {
     return length || "Medium";
 };
 
+// Parse markdown to plain text for TTS
+export const parseMarkdownToPlainText = (markdown) => {
+    if (!markdown) return "";
+
+    // Remove headings (# Heading)
+    let plainText = markdown.replace(/^#+\s+(.+)$/gm, "$1");
+
+    // Remove bold and italic (**bold**, *italic*)
+    plainText = plainText.replace(/\*\*(.+?)\*\*/g, "$1");
+    plainText = plainText.replace(/\*(.+?)\*/g, "$1");
+
+    // Remove links ([text](url))
+    plainText = plainText.replace(/\[(.+?)\]\(.+?\)/g, "$1");
+
+    // Replace bullet points with a dash and space
+    plainText = plainText.replace(/^\s*[\*\-\+]\s+/gm, "- ");
+
+    // Replace numbered lists with the number and a period
+    plainText = plainText.replace(/^\s*\d+\.\s+/gm, function (match) {
+        return match; // Keep the numbering
+    });
+
+    // Replace code blocks and inline code
+    plainText = plainText.replace(/```[\s\S]*?```/g, ""); // Remove code blocks
+    plainText = plainText.replace(/`(.+?)`/g, "$1"); // Keep inline code content
+
+    // Replace blockquotes
+    plainText = plainText.replace(/^>\s+(.+)$/gm, "$1");
+
+    // Replace multiple newlines with a single one
+    plainText = plainText.replace(/\n{3,}/g, "\n\n");
+
+    return plainText.trim();
+};
+
 export default {
     isValidYouTubeUrl,
     extractVideoId,
@@ -114,4 +149,5 @@ export default {
     getPlaceholderThumbnail,
     formatSummaryType,
     formatSummaryLength,
+    parseMarkdownToPlainText,
 };

@@ -32,6 +32,7 @@ import {
     openUrl,
     formatSummaryType,
     formatSummaryLength,
+    parseMarkdownToPlainText,
 } from "../utils";
 import {
     COLORS,
@@ -86,7 +87,9 @@ const SummaryScreen = ({ route, navigation }) => {
     // Process text for TTS when summary changes
     useEffect(() => {
         if (summary?.summary_text) {
-            const processed = processTextForSpeech(summary.summary_text);
+            // Parse markdown to plain text for TTS processing
+            const plainText = parseMarkdownToPlainText(summary.summary_text);
+            const processed = processTextForSpeech(plainText);
             setProcessedText(processed);
         }
     }, [summary]);
@@ -153,10 +156,9 @@ const SummaryScreen = ({ route, navigation }) => {
             await stopSpeaking();
             setIsPlaying(false);
         } else {
-            const success = await speakText(
-                summary.summary_text,
-                currentSentence
-            );
+            // Use plain text for speech
+            const plainText = parseMarkdownToPlainText(summary.summary_text);
+            const success = await speakText(plainText, currentSentence);
             setIsPlaying(success);
         }
     };
@@ -169,7 +171,9 @@ const SummaryScreen = ({ route, navigation }) => {
         ) {
             const nextSentence = currentSentence + 1;
             await stopSpeaking();
-            const success = await speakText(summary.summary_text, nextSentence);
+            // Use plain text for speech
+            const plainText = parseMarkdownToPlainText(summary.summary_text);
+            const success = await speakText(plainText, nextSentence);
             setIsPlaying(success);
         }
     };
@@ -179,7 +183,9 @@ const SummaryScreen = ({ route, navigation }) => {
         if (processedText && currentSentence > 0) {
             const prevSentence = currentSentence - 1;
             await stopSpeaking();
-            const success = await speakText(summary.summary_text, prevSentence);
+            // Use plain text for speech
+            const plainText = parseMarkdownToPlainText(summary.summary_text);
+            const success = await speakText(plainText, prevSentence);
             setIsPlaying(success);
         }
     };
@@ -425,7 +431,7 @@ const SummaryScreen = ({ route, navigation }) => {
                 {/* Summary Content */}
                 <View style={styles.summaryContentContainer}>
                     <Text style={styles.summaryTitle}>Summary</Text>
-                    {processedText ? (
+                    {isPlaying && processedText ? (
                         <View>
                             {processedText.sentences.map((sentence, index) => (
                                 <View
