@@ -144,7 +144,7 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
         # 'quiet': True,
         'no_warnings': True,
         'skip_download': True,
-        'cookiefile': './cookies.txt',
+        'cookiefile': 'cookies.txt',
     }
 
     # yt-dlp -q --no-warnings --skip-download --writesubtitles --writeautomaticsub --cookies ./cookies.txt "https://www.youtube.com/watch?v=ht8AHzB1VDE"
