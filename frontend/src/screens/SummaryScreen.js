@@ -59,7 +59,7 @@ const SummaryScreen = ({ route, navigation }) => {
 
     // TTS highlighting state
     const [currentWord, setCurrentWord] = useState(null);
-    const [currentSentence, setCurrentSentence] = useState(0);
+    const [currentSentence, setCurrentSentence] = useState(0); // Always start from the first sentence
     const [processedText, setProcessedText] = useState(null);
 
     // Refs
@@ -91,6 +91,10 @@ const SummaryScreen = ({ route, navigation }) => {
             const plainText = parseMarkdownToPlainText(summary.summary_text);
             const processed = processTextForSpeech(plainText);
             setProcessedText(processed);
+
+            // Reset to the beginning of the summary when summary changes
+            setCurrentSentence(0);
+            setCurrentWord(null);
         }
     }, [summary]);
 
@@ -107,6 +111,8 @@ const SummaryScreen = ({ route, navigation }) => {
                 setCurrentSentence(event.sentenceIndex);
             },
             onStart: (sentenceIndex) => {
+                // When starting from the Read Aloud button, we want to start from the beginning
+                // The sentenceIndex parameter will be 0 when starting from the beginning
                 setCurrentSentence(sentenceIndex);
                 // Reset current word when starting speech
                 setCurrentWord(null);
@@ -158,7 +164,9 @@ const SummaryScreen = ({ route, navigation }) => {
         } else {
             // Use plain text for speech
             const plainText = parseMarkdownToPlainText(summary.summary_text);
-            const success = await speakText(plainText, currentSentence);
+            // Always start from the beginning (sentence index 0) when pressing Read Aloud
+            setCurrentSentence(0); // Reset to first sentence
+            const success = await speakText(plainText, 0); // Always start from the beginning
             setIsPlaying(success);
         }
     };
