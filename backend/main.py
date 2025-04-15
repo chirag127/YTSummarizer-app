@@ -148,6 +148,10 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
         'verbose': True,
     }
 
+    # print the current working directory
+    current_dir = os.getcwd()
+    logger.info(f"Current working directory: {current_dir}")
+
     # yt-dlp -q --no-warnings --skip-download --writesubtitles --writeautomaticsub --cookies ./cookies.txt "https://www.youtube.com/watch?v=ht8AHzB1VDE"
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
