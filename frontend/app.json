@@ -51,6 +51,62 @@
             "BROWSABLE",
             "DEFAULT"
           ]
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "text/plain"
+          },
+          "label": "Summarize with YTSummarizer"
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "text/*"
+          },
+          "label": "Summarize with YTSummarizer"
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "*/*",
+            "scheme": "https",
+            "host": "*.youtube.com"
+          },
+          "label": "Summarize YouTube Video"
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "*/*",
+            "scheme": "https",
+            "host": "m.youtube.com"
+          },
+          "label": "Summarize YouTube Video"
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "*/*",
+            "scheme": "https",
+            "host": "youtu.be"
+          },
+          "label": "Summarize YouTube Video"
         }
       ]
     },

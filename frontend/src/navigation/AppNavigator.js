@@ -40,7 +40,7 @@ const HomeStackNavigator = () => {
 const AppNavigator = () => {
     const navigationRef = useRef(null);
 
-    // Handle deep links
+    // Handle deep links and shared content
     const handleDeepLink = (event) => {
         const { url } = event;
         if (url) {
@@ -58,7 +58,6 @@ const AppNavigator = () => {
                     navigationRef.current.navigate("HomeTab");
 
                     // Then set the URL in the HomeScreen
-                    // We'll need to modify HomeScreen to accept this parameter
                     setTimeout(() => {
                         navigationRef.current.navigate({
                             name: SCREENS.HOME,
@@ -71,17 +70,37 @@ const AppNavigator = () => {
         }
     };
 
-    // Set up deep link handling
+    // Handle shared text (like URLs)
+    const handleSharedText = async () => {
+        try {
+            // Get the initial URL that opened the app
+            const initialURL = await Linking.getInitialURL();
+
+            // Check if we have an initial URL
+            if (initialURL) {
+                handleDeepLink({ url: initialURL });
+                return;
+            }
+
+            // On Android, check if app was opened from share intent
+            if (Platform.OS === "android") {
+                const initialIntent = await Linking.getInitialURL();
+                if (initialIntent) {
+                    console.log("App opened from intent:", initialIntent);
+                }
+            }
+        } catch (error) {
+            console.error("Error handling shared text:", error);
+        }
+    };
+
+    // Set up deep link and share handling
     useEffect(() => {
         // Handle deep links when the app is already open
         const subscription = Linking.addEventListener("url", handleDeepLink);
 
-        // Handle deep links that opened the app
-        Linking.getInitialURL().then((url) => {
-            if (url) {
-                handleDeepLink({ url });
-            }
-        });
+        // Handle shared content and deep links that opened the app
+        handleSharedText();
 
         return () => {
             // Clean up the event listener

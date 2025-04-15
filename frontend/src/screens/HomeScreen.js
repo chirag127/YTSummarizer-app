@@ -11,6 +11,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     SafeAreaView,
+    Linking,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -38,7 +39,29 @@ const HomeScreen = ({ navigation, route }) => {
     const [summaryType, setSummaryType] = useState(SUMMARY_TYPES[0].id);
     const [summaryLength, setSummaryLength] = useState(SUMMARY_LENGTHS[1].id);
 
-    // Load last used settings
+    // Function to handle shared text (URLs)
+    const handleSharedText = async () => {
+        try {
+            // Check if app was opened from a share intent
+            const initialUrl = await Linking.getInitialURL();
+            if (initialUrl) {
+                console.log("App opened from URL:", initialUrl);
+                setUrl(initialUrl);
+                // We'll let the useEffect handle submission after URL is set
+            }
+
+            // For Android, we need to check for shared text
+            if (Platform.OS === "android") {
+                // This is a simplified approach - in a real app, you'd use
+                // the Android native module to get the shared text
+                console.log("Checking for Android shared text...");
+            }
+        } catch (error) {
+            console.error("Error handling shared text:", error);
+        }
+    };
+
+    // Load last used settings and check for shared content
     useEffect(() => {
         const loadLastSettings = async () => {
             try {
@@ -56,6 +79,7 @@ const HomeScreen = ({ navigation, route }) => {
         };
 
         loadLastSettings();
+        handleSharedText(); // Check for shared content when component mounts
     }, []);
 
     // Save settings when changed
@@ -124,11 +148,14 @@ const HomeScreen = ({ navigation, route }) => {
     // Update the useEffect to use the handleSubmit function
     useEffect(() => {
         if (route.params?.sharedUrl) {
+            console.log("Received shared URL:", route.params.sharedUrl);
             setUrl(route.params.sharedUrl);
-            // Uncomment the line below if you want to automatically submit when a URL is shared
-            // setTimeout(handleSubmit, 500); // Small delay to ensure state is updated
+            // Automatically submit when a URL is shared
+            setTimeout(() => {
+                if (url) handleSubmit();
+            }, 500); // Small delay to ensure state is updated
         }
-    }, [route.params?.sharedUrl]);
+    }, [route.params?.sharedUrl, url]);
 
     // Render summary type options
     const renderSummaryTypeOptions = () => {
