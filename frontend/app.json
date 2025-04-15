@@ -36,7 +36,15 @@
         "NSUserActivityTypes": [
           "INSendMessageIntent",
           "INSearchForMessagesIntent"
-        ]
+        ],
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save images to your photo library",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library",
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
+        "UISupportsDocumentBrowser": true,
+        "UIFileSharingEnabled": true
       },
       "usesIcloudStorage": false,
       "bundleIdentifier": "com.chirag127.YTSummarizer2reactnativeexpoapp"
@@ -174,6 +182,17 @@
             "mimeType": "text/*"
           },
           "label": "Summarize Links"
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": {
+            "mimeType": "text/plain",
+            "scheme": "vnd.youtube"
+          },
+          "label": "Summarize YouTube Video"
         }
       ]
     },

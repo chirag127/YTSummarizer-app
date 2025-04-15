@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { Linking, Platform } from "react-native";
+import { Linking } from "react-native";
 
 // Import screens
 import HomeScreen from "../screens/HomeScreen";
@@ -42,37 +42,54 @@ const AppNavigator = () => {
 
     // Handle deep links and shared content
     const handleDeepLink = (event) => {
-        const { url } = event;
-        if (url) {
+        try {
+            const { url } = event;
+            if (!url) return;
+
             console.log("Deep link received in AppNavigator:", url);
 
-            // Check if it's a YouTube URL
-            if (
+            // Enhanced YouTube URL detection
+            const isYouTubeUrl =
                 url.includes("youtube.com/watch") ||
                 url.includes("youtu.be/") ||
-                url.includes("m.youtube.com/watch")
-            ) {
+                url.includes("m.youtube.com/watch") ||
+                // Additional patterns for mobile YouTube URLs
+                url.includes("youtube.com/v/") ||
+                url.includes("youtube.com/embed/") ||
+                url.includes("youtube.app.goo.gl");
+
+            if (isYouTubeUrl) {
                 // Navigate to home screen and pass the URL
                 if (navigationRef.current) {
-                    console.log("Navigating to HomeTab with URL:", url);
+                    console.log("Navigating to HomeTab with YouTube URL:", url);
 
                     // Navigate to HomeTab first to ensure we're in the right stack
                     navigationRef.current.navigate("HomeTab");
 
                     // Then set the URL in the HomeScreen with a delay to ensure navigation completes
                     setTimeout(() => {
-                        console.log("Setting URL in HomeScreen:", url);
+                        console.log(
+                            "Setting URL in HomeScreen for auto-processing:",
+                            url
+                        );
                         navigationRef.current.navigate({
                             name: SCREENS.HOME,
                             params: {
                                 sharedUrl: url,
                                 timestamp: new Date().getTime(), // Add timestamp to force update
+                                autoProcess: true, // Flag to indicate automatic processing
                             },
                             merge: true,
                         });
-                    }, 300); // Increased delay for more reliable navigation
+                    }, 300); // Keep the same delay for reliability
+                } else {
+                    console.error("Navigation reference is not available");
                 }
+            } else {
+                console.log("Received URL is not a YouTube URL:", url);
             }
+        } catch (error) {
+            console.error("Error handling deep link:", error);
         }
     };
 
@@ -91,39 +108,15 @@ const AppNavigator = () => {
                 // Process the URL with a slight delay to ensure app is fully loaded
                 setTimeout(() => {
                     handleDeepLink({ url: initialURL });
-                }, 500);
+                }, 300); // Reduced delay for faster response
                 return;
             }
 
-            // For iOS, we need to check if the app was opened from a share extension
-            if (Platform.OS === "ios") {
-                // iOS share handling is primarily done through universal links
-                // and the URL handling above
-                console.log("Checking for iOS shared content...");
-
-                // On iOS, we can also check for shared text via Clipboard as a fallback
-                try {
-                    // This would require a native module in a real app
-                    // For now, we'll rely on the URL handling
-                } catch (err) {
-                    console.error("Error checking iOS shared content:", err);
-                }
-            }
-
-            // On Android, check if app was opened from share intent
-            if (Platform.OS === "android") {
-                try {
-                    console.log("Checking for Android shared content...");
-
-                    // In a real implementation, you would use a native module to get the shared text
-                    // For example, using react-native-receive-sharing-intent or a custom native module
-
-                    // For now, we'll rely on the URL handling via Linking.getInitialURL()
-                    // which should work for most share intents that include a URL
-                } catch (err) {
-                    console.error("Error checking Android intent:", err);
-                }
-            }
+            // For Android and iOS, we rely on the intent filters and URL schemes
+            // defined in app.json to handle shared content
+            console.log(
+                "Using Expo's built-in URL handling for shared content"
+            );
         } catch (error) {
             console.error("Error handling shared text:", error);
         }
@@ -147,7 +140,7 @@ const AppNavigator = () => {
         <NavigationContainer ref={navigationRef}>
             <Tab.Navigator
                 screenOptions={({ route }) => ({
-                    tabBarIcon: ({ focused, color, size }) => {
+                    tabBarIcon: ({ color, size }) => {
                         const iconName = TAB_ICONS[route.name] || "help-circle";
                         return (
                             <Ionicons

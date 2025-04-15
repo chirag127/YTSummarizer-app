@@ -49,32 +49,33 @@ const HomeScreen = ({ navigation, route }) => {
                 console.log("App opened from URL:", initialUrl);
                 setUrl(initialUrl);
 
-                // Process the URL immediately if it's a YouTube URL
-                if (
+                // Enhanced YouTube URL detection
+                const isYouTubeUrl =
                     initialUrl.includes("youtube.com/watch") ||
                     initialUrl.includes("youtu.be/") ||
-                    initialUrl.includes("m.youtube.com/watch")
-                ) {
+                    initialUrl.includes("m.youtube.com/watch") ||
+                    initialUrl.includes("youtube.com/v/") ||
+                    initialUrl.includes("youtube.com/embed/") ||
+                    initialUrl.includes("youtube.app.goo.gl");
+
+                // Process the URL immediately if it's a YouTube URL
+                if (isYouTubeUrl) {
+                    console.log(
+                        "Auto-processing YouTube URL from initialUrl:",
+                        initialUrl
+                    );
                     // Use a timeout to ensure state is updated
                     setTimeout(() => {
                         processUrl(initialUrl);
-                    }, 500);
+                    }, 300); // Reduced timeout for faster processing
                 }
             }
 
-            // For Android, we need to check for shared text
-            if (Platform.OS === "android") {
-                // This is a simplified approach - in a real app, you'd use
-                // the Android native module to get the shared text
-                console.log("Checking for Android shared text...");
-                // Additional Android-specific handling can be added here
-            }
-
-            // For iOS, check for shared content
-            if (Platform.OS === "ios") {
-                console.log("Checking for iOS shared content...");
-                // iOS-specific handling can be added here if needed
-            }
+            // For Android and iOS, we rely on the intent filters and URL schemes
+            // defined in app.json to handle shared content
+            console.log(
+                "Using Expo's built-in URL handling for shared content in HomeScreen"
+            );
         } catch (error) {
             console.error("Error handling shared text:", error);
         }
@@ -90,6 +91,9 @@ const HomeScreen = ({ navigation, route }) => {
             setIsLoading(true);
             try {
                 console.log("Processing URL directly:", urlToProcess);
+
+                // Process URL without showing alert popup
+
                 const summary = await generateSummary(
                     urlToProcess,
                     summaryType,
@@ -128,6 +132,9 @@ const HomeScreen = ({ navigation, route }) => {
 
         loadLastSettings();
         handleSharedText(); // Check for shared content when component mounts
+
+        // No cleanup needed for Expo's URL handling
+        return () => {};
     }, []);
 
     // Save settings when changed
@@ -184,19 +191,21 @@ const HomeScreen = ({ navigation, route }) => {
         if (route.params?.sharedUrl) {
             const sharedUrl = route.params.sharedUrl;
             const timestamp = route.params.timestamp || 0; // Get timestamp if available
+            const autoProcess = route.params.autoProcess || false; // Check if auto-processing is requested
 
             console.log(
                 "Received shared URL in HomeScreen:",
                 sharedUrl,
                 "Timestamp:",
-                timestamp
+                timestamp,
+                "Auto Process:",
+                autoProcess
             );
 
             // Set the URL in the input field
             setUrl(sharedUrl);
 
-            // Automatically process the shared URL after a short delay
-            // This ensures the URL is set in state before submission
+            // Always auto-process shared URLs as per the requirement
             const timer = setTimeout(() => {
                 console.log(
                     "Auto-processing shared URL in HomeScreen:",
@@ -206,11 +215,16 @@ const HomeScreen = ({ navigation, route }) => {
                     // Process the URL directly without relying on state
                     processUrl(sharedUrl);
                 }
-            }, 800); // Longer delay for more reliable processing
+            }, 300); // Reduced delay for faster processing while ensuring state is updated
 
             return () => clearTimeout(timer);
         }
-    }, [route.params?.sharedUrl, route.params?.timestamp, processUrl]);
+    }, [
+        route.params?.sharedUrl,
+        route.params?.timestamp,
+        route.params?.autoProcess,
+        processUrl,
+    ]);
 
     // Render summary type options
     const renderSummaryTypeOptions = () => {
