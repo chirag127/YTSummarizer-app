@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 import os
 import re
@@ -121,7 +121,6 @@ def is_valid_youtube_url(url: str) -> bool:
 
 import requests
 import re
-import json
 from urllib.parse import urlparse, parse_qs
 
 def extract_video_id(url: str) -> str:
@@ -142,14 +141,13 @@ def extract_video_id(url: str) -> str:
 async def extract_video_info(url: str) -> Dict[str, Any]:
     """Extract video information using yt-dlp."""
     ydl_opts = {
-        'quiet': True,
+        # 'quiet': True,
         'no_warnings': True,
         'skip_download': True,
-        'writesubtitles': True,
-        'writeautomaticsub': True,
-        'cookiefile': 'cookies.txt',
+        'cookiefile': './cookies.txt',
     }
 
+    # yt-dlp -q --no-warnings --skip-download --writesubtitles --writeautomaticsub --cookies ./cookies.txt "https://www.youtube.com/watch?v=ht8AHzB1VDE"
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)

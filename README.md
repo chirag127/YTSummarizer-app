@@ -2,6 +2,8 @@
 
 A cross-platform application that generates concise summaries of YouTube videos using Gemini 2.0 Flash-Lite AI and provides text-to-speech capabilities.
 
+eas build -p android --profile preview
+
 ## Features
 
 - Input YouTube video links via pasting or direct sharing
