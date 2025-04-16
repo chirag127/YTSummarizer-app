@@ -298,7 +298,7 @@ const SettingsScreen = () => {
                     <Text style={styles.aboutText}>
                         Powered by Gemini 2.0 Flash-Lite AI
                     </Text>
-                    <Text style={styles.aboutText}>© 2023 Chirag Singhal</Text>
+                    <Text style={styles.aboutText}>© 2025 Chirag Singhal</Text>
                 </View>
             </ScrollView>
         </View>

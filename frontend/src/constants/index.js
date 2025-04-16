@@ -123,9 +123,13 @@ export const TTS_RATE_OPTIONS = [
     { value: 1.25, label: "1.25x" },
     { value: 1.5, label: "1.5x" },
     { value: 2.0, label: "2.0x" },
+    { value: 2.5, label: "2.5x" },
     { value: 3.0, label: "3.0x" },
-    { value: 4.0, label: "4.0x" },
+    { value: 6.0, label: "6.0x" },
     { value: 8.0, label: "8.0x" },
+    { value: 10.0, label: "10.0x" },
+    { value: 12.0, label: "12.0x" },
+    { value: 14.0, label: "14.0x" },
     { value: 16.0, label: "16.0x" },
 ];
 
