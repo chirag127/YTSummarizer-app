@@ -4,9 +4,11 @@ A cross-platform application that generates concise summaries of YouTube videos 
 
 eas build -p android --profile preview
 
+## deploy to netlify
 
 npx expo export -p web
 netlify deploy --prod --dir dist
+
 
 
 ## Features
