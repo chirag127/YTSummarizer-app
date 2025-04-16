@@ -312,3 +312,6 @@ cython_debug/
 frontend/package-lock.json
 package-lock.json
 backend/yt-dlp.exe
+
+# Local Netlify folder
+.netlify
