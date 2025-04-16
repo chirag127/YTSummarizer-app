@@ -4,6 +4,11 @@ A cross-platform application that generates concise summaries of YouTube videos 
 
 eas build -p android --profile preview
 
+
+npx expo export -p web
+netlify deploy --prod --dir dist
+
+
 ## Features
 
 -   Input YouTube video links via pasting or direct sharing from other apps

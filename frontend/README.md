@@ -2,6 +2,9 @@
 
 This is the frontend application for the YouTube Summarizer, built with React Native Expo. It provides a cross-platform (iOS, Android, Web/PWA) interface for generating and managing AI-powered summaries of YouTube videos.
 
+npx expo export -p web
+netlify deploy --prod --dir dist
+
 ## Features
 
 -   Input YouTube video URLs for summarization via direct entry or sharing from other apps
