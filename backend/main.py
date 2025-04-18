@@ -163,6 +163,19 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
         user_pass = [os.getenv("USER_PASS1"), os.getenv("USER_PASS2"), os.getenv("USER_PASS3"), os.getenv("USER_PASS4"), os.getenv("USER_PASS5"), os.getenv("USER_PASS6"), os.getenv("USER_PASS7"), os.getenv("USER_PASS8"), os.getenv("USER_PASS9")]
         return random.choice(user_pass)
 
+    def get_random_user_password_rotate():
+        user_pass = [os.getenv("USER_PASS_ROTATE1"),
+                     os.getenv("USER_PASS_ROTATE2"),
+                     os.getenv("USER_PASS_ROTATE3"),
+                     os.getenv("USER_PASS_ROTATE4"),
+                     os.getenv("USER_PASS_ROTATE5"),
+                     os.getenv("USER_PASS_ROTATE6"),
+                     os.getenv("USER_PASS_ROTATE7"),
+                     os.getenv("USER_PASS_ROTATE8"),
+                     os.getenv("USER_PASS_ROTATE9"),
+                     os.getenv("USER_PASS_ROTATE10")]
+        return random.choice(user_pass)
+
     def get_random_ip_port():
         ip_port = [os.getenv("IP_PORT1"), os.getenv("IP_PORT2"), os.getenv("IP_PORT3"), os.getenv("IP_PORT4"), os.getenv("IP_PORT5"), os.getenv("IP_PORT6"), os.getenv("IP_PORT7"), os.getenv("IP_PORT8"), os.getenv("IP_PORT9"), os.getenv("IP_PORT10")]
         return random.choice(ip_port)
@@ -177,6 +190,7 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
                 #  'proxy': 'http://177.234.247.234:999/',
                 #  'proxy': os.getenv("PROXY_URL"),
          'proxy': "http://"+ get_random_user_password() + "@" + get_random_ip_port(),
+        # "proxy": "http://" + get_random_user_password_rotate() + "@" + "p.webshare.io:80",
 
 
         # 'writesubtitles': True,
