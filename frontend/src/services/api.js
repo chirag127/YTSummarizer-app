@@ -63,9 +63,11 @@ export const generateSummary = async (url, summaryType, summaryLength) => {
     }
 };
 
-export const getAllSummaries = async () => {
+export const getAllSummaries = async (page = 1, limit = 100) => {
     try {
-        const response = await api.get("/summaries");
+        const response = await api.get("/summaries", {
+            params: { page, limit },
+        });
         return response.data;
     } catch (error) {
         console.error("Error fetching summaries:", error);
@@ -73,23 +75,43 @@ export const getAllSummaries = async () => {
         // If there's a network error, return mock data
         if (error.message === "Network Error") {
             console.log("Network error detected, returning mock summaries");
-            // Return empty array or mock data as fallback
-            return [];
+            // Return empty array with pagination metadata as fallback
+            return {
+                summaries: [],
+                pagination: {
+                    page: page,
+                    limit: limit,
+                    total_count: 0,
+                    total_pages: 0,
+                    has_next: false,
+                    has_prev: false,
+                },
+            };
 
             // Uncomment below to return mock data instead of empty array
             /*
-            return [
-                {
-                    id: "mock-1",
-                    video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    video_title: "Sample Video (Offline Mode)",
-                    video_thumbnail_url: "https://via.placeholder.com/480x360?text=Offline+Mode",
-                    summary_text: "This is a sample summary shown when you're offline. Connect to the internet to see your actual summaries.",
-                    summary_type: "Brief",
-                    summary_length: "Medium",
-                    created_at: new Date().toISOString(),
+            return {
+                summaries: [
+                    {
+                        id: "mock-1",
+                        video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                        video_title: "Sample Video (Offline Mode)",
+                        video_thumbnail_url: "https://via.placeholder.com/480x360?text=Offline+Mode",
+                        summary_text: "This is a sample summary shown when you're offline. Connect to the internet to see your actual summaries.",
+                        summary_type: "Brief",
+                        summary_length: "Medium",
+                        created_at: new Date().toISOString(),
+                    }
+                ],
+                pagination: {
+                    page: page,
+                    limit: limit,
+                    total_count: 1,
+                    total_pages: 1,
+                    has_next: false,
+                    has_prev: false
                 }
-            ];
+            };
             */
         }
 

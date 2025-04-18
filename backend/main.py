@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 import os
 import re
@@ -14,6 +14,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 import logging
 from bson import ObjectId
+import random
 
 # Load environment variables
 load_dotenv()
@@ -154,6 +155,9 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
     cookies_file = os.path.join(current_dir, 'cookies.txt')
     logger.info(f"Using cookies file: {cookies_file}")
 
+    def get_random_proxy():
+        proxies = [os.getenv("PROXY_URL1"), os.getenv("PROXY_URL2"), os.getenv("PROXY_URL3"), os.getenv("PROXY_URL4"), os.getenv("PROXY_URL5"), os.getenv("PROXY_URL6"), os.getenv("PROXY_URL7"), os.getenv("PROXY_URL8"), os.getenv("PROXY_URL9"), os.getenv("PROXY_URL10")]
+        return random.choice(proxies)
 
     ydl_opts = {
         # 'quiet': True,
@@ -161,7 +165,10 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
         'skip_download': True,
         'cookiefile': cookies_file,
         'verbose': True,
-                 'proxy': os.getenv("PROXY_URL"),
+                #  'proxy': get_random_proxy(),
+                 'proxy': get_random_proxy(),
+                #  'proxy': os.getenv("PROXY_URL"),
+
 
         # 'writesubtitles': True,
         # 'writeautomaticsub': True,
@@ -571,14 +578,40 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database)):
     summary["id"] = str(result.inserted_id)
     return SummaryResponse(**summary)
 
-@app.get("/summaries", response_model=List[SummaryResponse])
-async def get_summaries(db=Depends(get_database)):
-    """Get all summaries."""
+@app.get("/summaries", response_model=Dict[str, Any])
+async def get_summaries(page: int = 1, limit: int = 100, db=Depends(get_database)):
+    """Get summaries with pagination."""
+    # Ensure valid pagination parameters
+    page = max(1, page)  # Minimum page is 1
+    limit = min(max(1, limit), 100)  # Limit between 1 and 100
+    skip = (page - 1) * limit
+
+    # Get total count for pagination info
+    total_count = await db.summaries.count_documents({})
+
+    # Get paginated summaries
     summaries = []
-    async for summary in db.summaries.find().sort("created_at", -1):
+    async for summary in db.summaries.find().sort("created_at", -1).skip(skip).limit(limit):
         summary["id"] = str(summary.pop("_id"))
         summaries.append(SummaryResponse(**summary))
-    return summaries
+
+    # Calculate pagination metadata
+    total_pages = (total_count + limit - 1) // limit  # Ceiling division
+    has_next = page < total_pages
+    has_prev = page > 1
+
+    # Return summaries with pagination metadata
+    return {
+        "summaries": summaries,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "has_next": has_next,
+            "has_prev": has_prev
+        }
+    }
 
 @app.get("/summaries/{summary_id}", response_model=SummaryResponse)
 async def get_summary(summary_id: str, db=Depends(get_database)):

@@ -28,22 +28,46 @@ const HistoryScreen = ({ navigation }) => {
     const [summaries, setSummaries] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [error, setError] = useState(null);
     const [showStarredOnly, setShowStarredOnly] = useState(false);
+    const [pagination, setPagination] = useState({
+        page: 1,
+        limit: 100,
+        total_count: 0,
+        total_pages: 0,
+        has_next: false,
+        has_prev: false,
+    });
 
     // Fetch summaries
-    const fetchSummaries = async (showRefreshing = false) => {
+    const fetchSummaries = async (showRefreshing = false, page = 1) => {
         if (showRefreshing) {
             setIsRefreshing(true);
-        } else {
+        } else if (page === 1) {
             setIsLoading(true);
+        } else {
+            setIsLoadingMore(true);
         }
 
         setError(null);
 
         try {
-            const data = await getAllSummaries();
-            setSummaries(data);
+            const data = await getAllSummaries(page, pagination.limit);
+
+            if (page === 1) {
+                // Replace all summaries when loading first page
+                setSummaries(data.summaries);
+            } else {
+                // Append summaries when loading more pages
+                setSummaries((prevSummaries) => [
+                    ...prevSummaries,
+                    ...data.summaries,
+                ]);
+            }
+
+            // Update pagination info
+            setPagination(data.pagination);
         } catch (error) {
             console.error("Error fetching summaries:", error);
 
@@ -58,6 +82,14 @@ const HistoryScreen = ({ navigation }) => {
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
+            setIsLoadingMore(false);
+        }
+    };
+
+    // Load more summaries
+    const loadMoreSummaries = () => {
+        if (pagination.has_next && !isLoadingMore) {
+            fetchSummaries(false, pagination.page + 1);
         }
     };
 
@@ -75,7 +107,9 @@ const HistoryScreen = ({ navigation }) => {
 
     // Handle refresh
     const handleRefresh = () => {
-        fetchSummaries(true);
+        // Reset to page 1 when refreshing
+        setPagination((prev) => ({ ...prev, page: 1 }));
+        fetchSummaries(true, 1);
     };
 
     // Handle delete
@@ -155,6 +189,29 @@ const HistoryScreen = ({ navigation }) => {
     const filteredSummaries = showStarredOnly
         ? summaries.filter((summary) => summary.is_starred)
         : summaries;
+
+    // Render footer component (load more indicator)
+    const renderFooter = () => {
+        if (!pagination.has_next) return null;
+
+        return (
+            <View style={styles.footerContainer}>
+                {isLoadingMore ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                ) : (
+                    <TouchableOpacity
+                        style={styles.loadMoreButton}
+                        onPress={loadMoreSummaries}
+                    >
+                        <Text style={styles.loadMoreButtonText}>Load More</Text>
+                    </TouchableOpacity>
+                )}
+                <Text style={styles.paginationInfo}>
+                    Page {pagination.page} of {pagination.total_pages}
+                </Text>
+            </View>
+        );
+    };
 
     // Render summary item
     const renderSummaryItem = ({ item }) => {
@@ -292,6 +349,9 @@ const HistoryScreen = ({ navigation }) => {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={renderEmptyState}
+                ListFooterComponent={renderFooter}
+                onEndReached={loadMoreSummaries}
+                onEndReachedThreshold={0.3}
                 refreshControl={
                     <RefreshControl
                         refreshing={isRefreshing}
@@ -418,6 +478,28 @@ const styles = StyleSheet.create({
         color: COLORS.background,
         fontSize: FONT_SIZES.md,
         fontWeight: "600",
+    },
+    footerContainer: {
+        padding: SPACING.md,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    loadMoreButton: {
+        backgroundColor: COLORS.primary,
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.lg,
+        borderRadius: 8,
+        marginBottom: SPACING.sm,
+    },
+    loadMoreButtonText: {
+        color: COLORS.background,
+        fontSize: FONT_SIZES.md,
+        fontWeight: "600",
+    },
+    paginationInfo: {
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.textSecondary,
+        marginTop: SPACING.xs,
     },
 });
 
