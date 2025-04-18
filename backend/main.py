@@ -159,6 +159,14 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
         proxies = [os.getenv("PROXY_URL1"), os.getenv("PROXY_URL2"), os.getenv("PROXY_URL3"), os.getenv("PROXY_URL4"), os.getenv("PROXY_URL5"), os.getenv("PROXY_URL6"), os.getenv("PROXY_URL7"), os.getenv("PROXY_URL8"), os.getenv("PROXY_URL9"), os.getenv("PROXY_URL10")]
         return random.choice(proxies)
 
+    def get_random_user_password():
+        user_pass = [os.getenv("USER_PASS1"), os.getenv("USER_PASS2"), os.getenv("USER_PASS3"), os.getenv("USER_PASS4"), os.getenv("USER_PASS5"), os.getenv("USER_PASS6"), os.getenv("USER_PASS7"), os.getenv("USER_PASS8"), os.getenv("USER_PASS9")]
+        return random.choice(user_pass)
+
+    def get_random_ip_port():
+        ip_port = [os.getenv("IP_PORT1"), os.getenv("IP_PORT2"), os.getenv("IP_PORT3"), os.getenv("IP_PORT4"), os.getenv("IP_PORT5"), os.getenv("IP_PORT6"), os.getenv("IP_PORT7"), os.getenv("IP_PORT8"), os.getenv("IP_PORT9"), os.getenv("IP_PORT10")]
+        return random.choice(ip_port)
+
     ydl_opts = {
         # 'quiet': True,
         # 'no_warnings': True,
@@ -166,8 +174,9 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
         'cookiefile': cookies_file,
         'verbose': True,
                 #  'proxy': get_random_proxy(),
-                 'proxy': get_random_proxy(),
+                #  'proxy': 'http://177.234.247.234:999/',
                 #  'proxy': os.getenv("PROXY_URL"),
+         'proxy': "http://"+ get_random_user_password() + "@" + get_random_ip_port(),
 
 
         # 'writesubtitles': True,
