@@ -3,6 +3,7 @@ export const SUMMARY_TYPES = [
     { id: "Brief", label: "Brief" },
     { id: "Detailed", label: "Detailed" },
     { id: "Key Point", label: "Key Points" },
+    { id: "Chapters", label: "Chapters" },
 ];
 
 // Summary Lengths

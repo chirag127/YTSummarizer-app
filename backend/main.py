@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -74,6 +74,7 @@ class SummaryType(str):
     BRIEF = "Brief"
     DETAILED = "Detailed"
     KEY_POINT = "Key Point"
+    CHAPTERS = "Chapters"
 
 class SummaryLength(str):
     SHORT = "Short"
@@ -437,7 +438,8 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
         type_instruction = {
             SummaryType.BRIEF: "Create a concise overview",
             SummaryType.DETAILED: "Create a comprehensive summary with key details",
-            SummaryType.KEY_POINT: "Extract and list the main points in bullet form"
+            SummaryType.KEY_POINT: "Extract and list the main points in bullet form",
+            SummaryType.CHAPTERS: "Divide the content into logical chapters with timestamps (if available) and provide a brief summary for each chapter"
         }
 
         prompt = f"""
@@ -445,6 +447,8 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
         The summary should be approximately {length_words.get(summary_length, "200-300 words")} in length.
         Format the output in Markdown with appropriate headings, bullet points, and emphasis where needed.
         IMPORTANT: Always generate the summary in English, regardless of the language of the transcript.
+
+        {"For chapter-based summaries, identify logical sections in the content and create a chapter for each major topic or segment. Format each chapter with a clear heading that includes a timestamp (if you can identify it from the transcript) and a brief title. Under each chapter heading, provide a concise summary of that section." if summary_type == SummaryType.CHAPTERS else ""}
 
         TRANSCRIPT:
         {transcript}
@@ -513,7 +517,7 @@ async def validate_url(youtube_url: YouTubeURL):
         raise HTTPException(status_code=500, detail=f"Error processing URL: {str(e)}")
 
 @app.post("/generate-summary", response_model=SummaryResponse)
-async def create_summary(youtube_url: YouTubeURL, background_tasks: BackgroundTasks, db=Depends(get_database)):
+async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database)):
     """Generate summary for a YouTube video and store it."""
     url = str(youtube_url.url)
 
