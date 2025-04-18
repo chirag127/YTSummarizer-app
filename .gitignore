@@ -309,8 +309,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-frontend/package-lock.json
-package-lock.json
 backend/yt-dlp.exe
 
 # Local Netlify folder
