@@ -148,13 +148,16 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
     cookies_file = os.path.join(current_dir, 'cookies.txt')
     logger.info(f"Using cookies file: {cookies_file}")
 
-    
+
     ydl_opts = {
         # 'quiet': True,
         # 'no_warnings': True,
         'skip_download': True,
         'cookiefile': cookies_file,
         'verbose': True,
+        'writesubtitles': True,
+        'writeautomaticsub': True,
+
     }
 
     # print the current working directory
