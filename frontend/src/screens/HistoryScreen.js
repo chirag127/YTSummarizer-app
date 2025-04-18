@@ -9,12 +9,17 @@ import {
     ActivityIndicator,
     Alert,
     RefreshControl,
+    Switch,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 // Import components, services, and utilities
-import { getAllSummaries, deleteSummary } from "../services/api";
+import {
+    getAllSummaries,
+    deleteSummary,
+    toggleStarSummary,
+} from "../services/api";
 import { formatDate, truncateText } from "../utils";
 import { COLORS, SPACING, FONT_SIZES, SCREENS, SHADOWS } from "../constants";
 
@@ -24,6 +29,7 @@ const HistoryScreen = ({ navigation }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState(null);
+    const [showStarredOnly, setShowStarredOnly] = useState(false);
 
     // Fetch summaries
     const fetchSummaries = async (showRefreshing = false) => {
@@ -119,6 +125,37 @@ const HistoryScreen = ({ navigation }) => {
         );
     };
 
+    // Handle star toggle
+    const handleToggleStar = async (id, currentStarred) => {
+        try {
+            const newStarredStatus = !currentStarred;
+            const updatedSummary = await toggleStarSummary(
+                id,
+                newStarredStatus
+            );
+
+            // Update the summaries state with the updated summary
+            setSummaries((prevSummaries) =>
+                prevSummaries.map((summary) =>
+                    summary.id === id
+                        ? { ...summary, is_starred: newStarredStatus }
+                        : summary
+                )
+            );
+        } catch (error) {
+            console.error("Error toggling star status:", error);
+            Alert.alert(
+                "Error",
+                "Failed to update star status. Please try again."
+            );
+        }
+    };
+
+    // Filtered summaries based on star filter
+    const filteredSummaries = showStarredOnly
+        ? summaries.filter((summary) => summary.is_starred)
+        : summaries;
+
     // Render summary item
     const renderSummaryItem = ({ item }) => {
         return (
@@ -150,16 +187,34 @@ const HistoryScreen = ({ navigation }) => {
                         </Text>
                     </View>
                 </View>
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(item.id)}
-                >
-                    <Ionicons
-                        name="trash-outline"
-                        size={20}
-                        color={COLORS.error}
-                    />
-                </TouchableOpacity>
+                <View style={styles.actionsContainer}>
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() =>
+                            handleToggleStar(item.id, item.is_starred)
+                        }
+                    >
+                        <Ionicons
+                            name={item.is_starred ? "star" : "star-outline"}
+                            size={20}
+                            color={
+                                item.is_starred
+                                    ? COLORS.accent
+                                    : COLORS.textSecondary
+                            }
+                        />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleDelete(item.id)}
+                    >
+                        <Ionicons
+                            name="trash-outline"
+                            size={20}
+                            color={COLORS.error}
+                        />
+                    </TouchableOpacity>
+                </View>
             </TouchableOpacity>
         );
     };
@@ -219,8 +274,20 @@ const HistoryScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+            <View style={styles.filterContainer}>
+                <Text style={styles.filterLabel}>Show Starred Only</Text>
+                <Switch
+                    value={showStarredOnly}
+                    onValueChange={setShowStarredOnly}
+                    trackColor={{
+                        false: COLORS.disabled,
+                        true: COLORS.primary,
+                    }}
+                    thumbColor={COLORS.background}
+                />
+            </View>
             <FlatList
-                data={summaries}
+                data={filteredSummaries}
                 renderItem={renderSummaryItem}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
@@ -284,10 +351,30 @@ const styles = StyleSheet.create({
         color: COLORS.primary,
         fontWeight: "500",
     },
-    deleteButton: {
+    actionsContainer: {
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: SPACING.xs,
+    },
+    actionButton: {
         padding: SPACING.sm,
         justifyContent: "center",
         alignItems: "center",
+    },
+    filterContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.sm,
+        backgroundColor: COLORS.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    filterLabel: {
+        fontSize: FONT_SIZES.md,
+        color: COLORS.text,
+        fontWeight: "500",
     },
     emptyContainer: {
         flex: 1,

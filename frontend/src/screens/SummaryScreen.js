@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Markdown from "react-native-markdown-display";
 
 // Import components, services, and utilities
-import { updateSummary } from "../services/api";
+import { updateSummary, toggleStarSummary } from "../services/api";
 import {
     speakText,
     stopSpeaking,
@@ -230,6 +230,26 @@ const SummaryScreen = ({ route, navigation }) => {
         setSelectedType(summary.summary_type);
         setSelectedLength(summary.summary_length);
         setEditModalVisible(true);
+    };
+
+    // Handle star toggle
+    const handleToggleStar = async () => {
+        try {
+            const newStarredStatus = !summary.is_starred;
+            const updatedSummary = await toggleStarSummary(
+                summary.id,
+                newStarredStatus
+            );
+
+            // Update the route params with the updated summary
+            navigation.setParams({ summary: updatedSummary });
+        } catch (error) {
+            console.error("Error toggling star status:", error);
+            Alert.alert(
+                "Error",
+                "Failed to update star status. Please try again."
+            );
+        }
     };
 
     // Handle save edit
@@ -559,6 +579,22 @@ const SummaryScreen = ({ route, navigation }) => {
                     />
                     <Text style={styles.actionButtonText}>
                         {isPlaying ? "Pause" : "Read Aloud"}
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleToggleStar}
+                >
+                    <Ionicons
+                        name={summary.is_starred ? "star" : "star-outline"}
+                        size={24}
+                        color={
+                            summary.is_starred ? COLORS.accent : COLORS.primary
+                        }
+                    />
+                    <Text style={styles.actionButtonText}>
+                        {summary.is_starred ? "Starred" : "Star"}
                     </Text>
                 </TouchableOpacity>
 

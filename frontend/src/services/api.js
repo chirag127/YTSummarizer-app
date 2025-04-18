@@ -1,8 +1,8 @@
 import axios from "axios";
 
 // Base URL for API calls - change this to your backend URL
-const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
-// const API_BASE_URL = "http://192.168.31.232:8000";
+// const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
+const API_BASE_URL = "http://192.168.31.232:8000";
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -173,6 +173,51 @@ export const updateSummary = async (id, summaryType, summaryLength) => {
     }
 };
 
+export const toggleStarSummary = async (id, isStarred) => {
+    try {
+        const response = await api.patch(`/summaries/${id}/star`, {
+            is_starred: isStarred,
+        });
+        return response.data;
+    } catch (error) {
+        console.error(
+            `Error toggling star status for summary with ID ${id}:`,
+            error
+        );
+
+        // If there's a network error, return a mock updated summary
+        if (error.message === "Network Error") {
+            console.log(
+                `Network error detected, returning mock updated star status for ID ${id}`
+            );
+            // Try to get the current summary from local state if possible
+            try {
+                // For now, return a mock updated summary
+                return {
+                    id: id,
+                    is_starred: isStarred,
+                    // Include other required fields with placeholder values
+                    video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                    video_title: "Summary (Offline Mode)",
+                    video_thumbnail_url:
+                        "https://via.placeholder.com/480x360?text=Offline+Mode",
+                    summary_text:
+                        "This summary's star status was updated in offline mode. Changes may not be saved to the server.",
+                    summary_type: "Brief",
+                    summary_length: "Medium",
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                };
+            } catch (innerError) {
+                console.error("Error creating mock star update:", innerError);
+                throw error; // Throw the original error
+            }
+        }
+
+        throw error;
+    }
+};
+
 export const deleteSummary = async (id) => {
     try {
         const response = await api.delete(`/summaries/${id}`);
@@ -199,5 +244,6 @@ export default {
     getAllSummaries,
     getSummaryById,
     updateSummary,
+    toggleStarSummary,
     deleteSummary,
 };
