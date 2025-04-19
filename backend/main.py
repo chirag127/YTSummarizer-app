@@ -147,6 +147,13 @@ def extract_video_id(url: str) -> str:
             return parsed_url.path.split('/')[2]
         elif parsed_url.path.startswith('/v/'):
             return parsed_url.path.split('/')[2]
+        elif parsed_url.path.startswith('/live/'):
+            # Handle /live/ format URLs
+            # Extract the video ID from the path
+            video_id = parsed_url.path.split('/')[2]
+            # Remove any query parameters
+            video_id = video_id.split('?')[0]
+            return video_id
     # If we get here, we can't extract the ID
     return None
 
@@ -484,6 +491,7 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
         Based on the following transcript from a YouTube video, {type_instruction.get(summary_type, "create a summary")}.
         The summary should be approximately {length_words.get(summary_length, "200-300 words")} in length.
         Format the output in Markdown with appropriate headings, bullet points, and emphasis where needed.
+        do not include ```markdown at the start and end of the summary.
         IMPORTANT: Always generate the summary in English, regardless of the language of the transcript.
 
         {"For chapter-based summaries, identify logical sections in the content and create a chapter for each major topic or segment. Format each chapter with a clear heading that includes a timestamp (if you can identify it from the transcript) and a brief title. Under each chapter heading, provide a concise summary of that section." if summary_type == SummaryType.CHAPTERS else ""}

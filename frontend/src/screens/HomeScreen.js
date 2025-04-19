@@ -56,7 +56,9 @@ const HomeScreen = ({ navigation, route }) => {
                     initialUrl.includes("m.youtube.com/watch") ||
                     initialUrl.includes("youtube.com/v/") ||
                     initialUrl.includes("youtube.com/embed/") ||
-                    initialUrl.includes("youtube.app.goo.gl");
+                    initialUrl.includes("youtube.app.goo.gl") ||
+                    initialUrl.includes("youtube.com/live/") ||
+                    initialUrl.includes("m.youtube.com/live/");
 
                 // Process the URL immediately if it's a YouTube URL
                 if (isYouTubeUrl) {

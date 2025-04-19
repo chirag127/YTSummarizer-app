@@ -26,13 +26,26 @@ export const extractVideoId = (url) => {
         try {
             const urlObj = new URL(url);
             if (urlObj.hostname.includes("youtube.com")) {
+                // Check for /live/ format
+                if (urlObj.pathname.startsWith("/live/")) {
+                    // Extract video ID from the path
+                    const pathParts = urlObj.pathname.split("/");
+                    if (pathParts.length >= 3) {
+                        return pathParts[2].split("?")[0]; // Remove any query parameters
+                    }
+                }
+                // Standard watch format
                 return urlObj.searchParams.get("v");
             }
         } catch (error) {
             console.log("Error parsing URL:", error);
             // Extract video ID from URL using regex as fallback
             const match = url.match(/[?&]v=([^&]+)/);
-            return match ? match[1] : null;
+            if (match) return match[1];
+
+            // Try to match /live/ format as a fallback
+            const liveMatch = url.match(/\/live\/([^\/?]+)/);
+            return liveMatch ? liveMatch[1] : null;
         }
     } catch (error) {
         console.log("Error extracting video ID:", error);
