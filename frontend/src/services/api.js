@@ -1,8 +1,8 @@
 import axios from "axios";
 
 // Base URL for API calls - change this to your backend URL
-// const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
-const API_BASE_URL = "http://192.168.31.232:8000";
+const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
+// const API_BASE_URL = "http://192.168.31.232:8000";
 
 // Create axios instance with base URL
 const api = axios.create({
