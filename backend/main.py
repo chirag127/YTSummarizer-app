@@ -452,11 +452,14 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
     """Generate summary using Gemini API."""
     if not GEMINI_API_KEY:
         return "API key not configured. Unable to generate summary."
-
+    print("Generating summary...")
+    # print(f"Transcript: {transcript}")
     try:
         # Create Gemini client
         client = google.genai.Client(api_key=GEMINI_API_KEY)
-        model = "gemini-2.0-flash-lite"
+        # model = "gemini-2.0-flash-lite"
+        model="gemini-2.5-flash-preview-04-17"
+
 
         # Adjust prompt based on summary type and length
         length_words = {
@@ -479,6 +482,18 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
         IMPORTANT: Always generate the summary in English, regardless of the language of the transcript.
 
         {"For chapter-based summaries, identify logical sections in the content and create a chapter for each major topic or segment. Format each chapter with a clear heading that includes a timestamp (if you can identify it from the transcript) and a brief title. Under each chapter heading, provide a concise summary of that section." if summary_type == SummaryType.CHAPTERS else ""}
+
+        IMPORTANT: Exclude the following types of content from your summary:
+        - Sponsor segments (paid promotions or advertisements)
+        - Interaction reminders (like, subscribe, comment requests)
+        - Unpaid/Self Promotion (merchandise, Patreon, personal projects)
+        - Intro/outro animations or intermissions
+        - End cards and credits
+        - Preview/recap hooks for other content
+        - Tangents, jokes, or skits unrelated to the main content
+        - Non-essential music sections in non-music videos
+
+        Focus only on the substantive, informative content of the video.
 
         TRANSCRIPT:
         {transcript}
