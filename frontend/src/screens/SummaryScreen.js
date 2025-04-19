@@ -50,6 +50,7 @@ const SummaryScreen = ({ route, navigation }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [editModalVisible, setEditModalVisible] = useState(false);
+    const [showPlainText, setShowPlainText] = useState(false);
     const [selectedType, setSelectedType] = useState(
         summary?.summary_type || SUMMARY_TYPES[0].id
     );
@@ -459,7 +460,7 @@ const SummaryScreen = ({ route, navigation }) => {
                 {/* Summary Content */}
                 <View style={styles.summaryContentContainer}>
                     <Text style={styles.summaryTitle}>Summary</Text>
-                    {isPlaying && processedText ? (
+                    {(isPlaying || showPlainText) && processedText ? (
                         <View>
                             {processedText.sentences.map((sentence, index) => (
                                 <View
@@ -481,6 +482,7 @@ const SummaryScreen = ({ route, navigation }) => {
                                             if (word.trim() === "") return null;
 
                                             const isHighlighted =
+                                                !showPlainText &&
                                                 currentWord &&
                                                 currentWord.sentenceIndex ===
                                                     index &&
@@ -495,6 +497,7 @@ const SummaryScreen = ({ route, navigation }) => {
                                                         isHighlighted &&
                                                             styles.highlightedWord,
                                                     ]}
+                                                    selectable={true}
                                                 >
                                                     {word}{" "}
                                                 </Text>
@@ -504,7 +507,7 @@ const SummaryScreen = ({ route, navigation }) => {
                             ))}
                         </View>
                     ) : (
-                        <Markdown style={markdownStyles}>
+                        <Markdown style={markdownStyles} selectable={true}>
                             {summary.summary_text}
                         </Markdown>
                     )}
@@ -512,7 +515,7 @@ const SummaryScreen = ({ route, navigation }) => {
             </ScrollView>
 
             {/* TTS Navigation Buttons */}
-            {isPlaying && (
+            {isPlaying && !showPlainText && (
                 <View style={styles.ttsNavigationContainer}>
                     <TouchableOpacity
                         style={[
@@ -579,6 +582,27 @@ const SummaryScreen = ({ route, navigation }) => {
                     />
                     <Text style={styles.actionButtonText}>
                         {isPlaying ? "Pause" : "Read Aloud"}
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => {
+                        // If TTS is playing, stop it
+                        if (isPlaying) {
+                            stopSpeaking();
+                            setIsPlaying(false);
+                        }
+                        setShowPlainText(!showPlainText);
+                    }}
+                >
+                    <Ionicons
+                        name={showPlainText ? "document" : "document-text"}
+                        size={24}
+                        color={COLORS.primary}
+                    />
+                    <Text style={styles.actionButtonText}>
+                        {showPlainText ? "Show Markdown" : "Show Plain Text"}
                     </Text>
                 </TouchableOpacity>
 
