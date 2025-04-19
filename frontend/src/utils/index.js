@@ -16,7 +16,10 @@ export const extractVideoId = (url) => {
         // Handle youtu.be format
         if (url.includes("youtu.be")) {
             const parts = url.split("/");
-            return parts[parts.length - 1].split("?")[0];
+            // Get the last part which may contain query parameters
+            const lastPart = parts[parts.length - 1];
+            // Split at the first question mark to remove query parameters
+            return lastPart.split("?")[0];
         }
 
         // Handle youtube.com and m.youtube.com format

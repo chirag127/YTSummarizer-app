@@ -134,7 +134,12 @@ def extract_video_id(url: str) -> str:
     """Extract video ID from YouTube URL."""
     parsed_url = urlparse(url)
     if parsed_url.netloc == 'youtu.be':
-        return parsed_url.path.lstrip('/')
+        # Handle youtu.be URLs with query parameters
+        # Extract only the path without query parameters
+        video_id = parsed_url.path.lstrip('/')
+        # Split at any potential query parameter
+        video_id = video_id.split('?')[0]
+        return video_id
     elif parsed_url.netloc in ('www.youtube.com', 'youtube.com', 'm.youtube.com'):
         if parsed_url.path == '/watch':
             return parse_qs(parsed_url.query)['v'][0]

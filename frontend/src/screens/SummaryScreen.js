@@ -602,7 +602,7 @@ const SummaryScreen = ({ route, navigation }) => {
                         color={COLORS.primary}
                     />
                     <Text style={styles.actionButtonText}>
-                        {showPlainText ? "Show Markdown" : "Show Plain Text"}
+                        {showPlainText ? "Show Markdown" : "Show Text"}
                     </Text>
                 </TouchableOpacity>
 
