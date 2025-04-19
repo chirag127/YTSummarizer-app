@@ -239,9 +239,16 @@ const HistoryScreen = ({ navigation }) => {
                         {formatDate(item.created_at)}
                     </Text>
                     <View style={styles.summaryTypeContainer}>
-                        <Text style={styles.summaryType}>
-                            {item.summary_type} • {item.summary_length}
-                        </Text>
+                        <View style={[styles.badge, styles.typeBadge]}>
+                            <Text style={styles.badgeText}>
+                                {item.summary_type}
+                            </Text>
+                        </View>
+                        <View style={[styles.badge, styles.lengthBadge]}>
+                            <Text style={styles.badgeText}>
+                                {item.summary_length}
+                            </Text>
+                        </View>
                     </View>
                 </View>
                 <View style={styles.actionsContainer}>
@@ -405,10 +412,25 @@ const styles = StyleSheet.create({
     summaryTypeContainer: {
         flexDirection: "row",
         alignItems: "center",
+        marginTop: 4,
+        gap: 8,
     },
-    summaryType: {
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    typeBadge: {
+        backgroundColor: COLORS.primary,
+    },
+    lengthBadge: {
+        backgroundColor: COLORS.secondary,
+    },
+    badgeText: {
         fontSize: FONT_SIZES.xs,
-        color: COLORS.primary,
+        color: "white",
         fontWeight: "500",
     },
     actionsContainer: {

@@ -11,12 +11,17 @@ import {
     Share,
     Modal,
     Platform,
+    FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Markdown from "react-native-markdown-display";
 
 // Import components, services, and utilities
-import { updateSummary, toggleStarSummary } from "../services/api";
+import {
+    updateSummary,
+    toggleStarSummary,
+    getVideoSummaries,
+} from "../services/api";
 import {
     speakText,
     stopSpeaking,
@@ -57,6 +62,9 @@ const SummaryScreen = ({ route, navigation }) => {
     const [selectedLength, setSelectedLength] = useState(
         summary?.summary_length || SUMMARY_LENGTHS[1].id
     );
+    const [otherSummaries, setOtherSummaries] = useState([]);
+    const [loadingOtherSummaries, setLoadingOtherSummaries] = useState(false);
+    const [showOtherSummaries, setShowOtherSummaries] = useState(false);
 
     // TTS highlighting state
     const [currentWord, setCurrentWord] = useState(null);
@@ -73,6 +81,29 @@ const SummaryScreen = ({ route, navigation }) => {
             title: truncateText(summary?.video_title || "Summary", 30),
         });
     }, [navigation, summary]);
+
+    // Fetch other summaries for the same video
+    useEffect(() => {
+        const fetchOtherSummaries = async () => {
+            if (!summary?.video_url) return;
+
+            setLoadingOtherSummaries(true);
+            try {
+                const response = await getVideoSummaries(summary.video_url);
+                // Filter out the current summary
+                const filteredSummaries = response.summaries.filter(
+                    (s) => s.id !== summary.id
+                );
+                setOtherSummaries(filteredSummaries);
+            } catch (error) {
+                console.error("Error fetching other summaries:", error);
+            } finally {
+                setLoadingOtherSummaries(false);
+            }
+        };
+
+        fetchOtherSummaries();
+    }, [summary?.video_url, summary?.id]);
 
     // Check if TTS is playing
     useEffect(() => {
@@ -231,6 +262,18 @@ const SummaryScreen = ({ route, navigation }) => {
         setSelectedType(summary.summary_type);
         setSelectedLength(summary.summary_length);
         setEditModalVisible(true);
+    };
+
+    // Handle navigation to another summary
+    const handleNavigateToSummary = (otherSummary) => {
+        // Stop TTS if playing
+        if (isPlaying) {
+            stopSpeaking();
+            setIsPlaying(false);
+        }
+
+        // Navigate to the selected summary
+        navigation.setParams({ summary: otherSummary });
     };
 
     // Handle star toggle
@@ -512,6 +555,93 @@ const SummaryScreen = ({ route, navigation }) => {
                         </Markdown>
                     )}
                 </View>
+
+                {/* Other Summaries Section */}
+                {otherSummaries.length > 0 && (
+                    <View style={styles.otherSummariesContainer}>
+                        <View style={styles.otherSummariesHeader}>
+                            <Text style={styles.otherSummariesTitle}>
+                                Other Summaries for This Video
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() =>
+                                    setShowOtherSummaries(!showOtherSummaries)
+                                }
+                            >
+                                <Ionicons
+                                    name={
+                                        showOtherSummaries
+                                            ? "chevron-up"
+                                            : "chevron-down"
+                                    }
+                                    size={24}
+                                    color={COLORS.primary}
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        {showOtherSummaries && (
+                            <FlatList
+                                data={otherSummaries}
+                                keyExtractor={(item) => item.id}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={styles.otherSummaryItem}
+                                        onPress={() =>
+                                            handleNavigateToSummary(item)
+                                        }
+                                    >
+                                        <View style={styles.otherSummaryInfo}>
+                                            <View
+                                                style={
+                                                    styles.otherSummaryBadges
+                                                }
+                                            >
+                                                <View
+                                                    style={[
+                                                        styles.badge,
+                                                        styles.typeBadge,
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={styles.badgeText}
+                                                    >
+                                                        {item.summary_type}
+                                                    </Text>
+                                                </View>
+                                                <View
+                                                    style={[
+                                                        styles.badge,
+                                                        styles.lengthBadge,
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={styles.badgeText}
+                                                    >
+                                                        {item.summary_length}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <Text
+                                                style={styles.otherSummaryDate}
+                                            >
+                                                {formatDate(item.created_at)}
+                                            </Text>
+                                        </View>
+                                        <Ionicons
+                                            name="chevron-forward"
+                                            size={20}
+                                            color={COLORS.textSecondary}
+                                        />
+                                    </TouchableOpacity>
+                                )}
+                                style={styles.otherSummariesList}
+                                scrollEnabled={false}
+                                nestedScrollEnabled={true}
+                            />
+                        )}
+                    </View>
+                )}
             </ScrollView>
 
             {/* TTS Navigation Buttons */}
@@ -875,6 +1005,67 @@ const styles = StyleSheet.create({
         fontSize: FONT_SIZES.md,
         fontWeight: "600",
         color: COLORS.background,
+    },
+    // Other summaries styles
+    otherSummariesContainer: {
+        backgroundColor: COLORS.surface,
+        borderRadius: 8,
+        padding: SPACING.md,
+        marginBottom: SPACING.lg,
+    },
+    otherSummariesHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: SPACING.md,
+    },
+    otherSummariesTitle: {
+        fontSize: FONT_SIZES.lg,
+        fontWeight: "bold",
+        color: COLORS.text,
+    },
+    otherSummariesList: {
+        marginTop: SPACING.sm,
+    },
+    otherSummaryItem: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    otherSummaryInfo: {
+        flex: 1,
+    },
+    otherSummaryBadges: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 4,
+        gap: 8,
+    },
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    typeBadge: {
+        backgroundColor: COLORS.primary,
+    },
+    lengthBadge: {
+        backgroundColor: COLORS.secondary,
+    },
+    badgeText: {
+        fontSize: FONT_SIZES.xs,
+        color: "white",
+        fontWeight: "500",
+    },
+    otherSummaryDate: {
+        fontSize: FONT_SIZES.xs,
+        color: COLORS.textSecondary,
     },
 });
 

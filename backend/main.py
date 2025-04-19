@@ -582,8 +582,12 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database)):
     if not is_valid_youtube_url(url):
         raise HTTPException(status_code=400, detail="Invalid YouTube URL")
 
-    # Check if summary already exists
-    existing_summary = await db.summaries.find_one({"video_url": url})
+    # Check if summary already exists with the same URL, type, and length
+    existing_summary = await db.summaries.find_one({
+        "video_url": url,
+        "summary_type": youtube_url.summary_type,
+        "summary_length": youtube_url.summary_length
+    })
     if existing_summary:
         # Convert ObjectId to string for response
         existing_summary["id"] = str(existing_summary.pop("_id"))
@@ -630,19 +634,28 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database)):
     return SummaryResponse(**summary)
 
 @app.get("/summaries", response_model=Dict[str, Any])
-async def get_summaries(page: int = 1, limit: int = 100, db=Depends(get_database)):
-    """Get summaries with pagination."""
+async def get_summaries(page: int = 1, limit: int = 100, video_url: Optional[str] = None, db=Depends(get_database)):
+    """Get summaries with pagination.
+
+    Optional query parameter:
+    - video_url: If provided, returns all summaries for the specified video URL
+    """
     # Ensure valid pagination parameters
     page = max(1, page)  # Minimum page is 1
     limit = min(max(1, limit), 100)  # Limit between 1 and 100
     skip = (page - 1) * limit
 
+    # Build query filter
+    query_filter = {}
+    if video_url:
+        query_filter["video_url"] = video_url
+
     # Get total count for pagination info
-    total_count = await db.summaries.count_documents({})
+    total_count = await db.summaries.count_documents(query_filter)
 
     # Get paginated summaries
     summaries = []
-    async for summary in db.summaries.find().sort("created_at", -1).skip(skip).limit(limit):
+    async for summary in db.summaries.find(query_filter).sort("created_at", -1).skip(skip).limit(limit):
         summary["id"] = str(summary.pop("_id"))
         summaries.append(SummaryResponse(**summary))
 
@@ -773,6 +786,28 @@ async def delete_summary(summary_id: str, db=Depends(get_database)):
     except Exception as e:
         logger.error(f"Error deleting summary: {e}")
         raise HTTPException(status_code=500, detail=f"Error deleting summary: {str(e)}")
+
+@app.get("/video-summaries", response_model=Dict[str, Any])
+async def get_video_summaries(video_url: str, db=Depends(get_database)):
+    """Get all summaries for a specific video URL."""
+    if not video_url:
+        raise HTTPException(status_code=400, detail="Video URL is required")
+
+    try:
+        # Find all summaries for the video URL
+        summaries = []
+        async for summary in db.summaries.find({"video_url": video_url}).sort("created_at", -1):
+            summary["id"] = str(summary.pop("_id"))
+            summaries.append(SummaryResponse(**summary))
+
+        return {
+            "video_url": video_url,
+            "summaries": summaries,
+            "count": len(summaries)
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving video summaries: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving video summaries: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

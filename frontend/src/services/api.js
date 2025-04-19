@@ -1,8 +1,8 @@
 import axios from "axios";
 
 // Base URL for API calls - change this to your backend URL
-const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
-// const API_BASE_URL = "http://192.168.31.232:8000";
+// const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
+const API_BASE_URL = "http://192.168.31.232:8000";
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -260,6 +260,35 @@ export const deleteSummary = async (id) => {
     }
 };
 
+// Get all summaries for a specific video URL
+export const getVideoSummaries = async (videoUrl) => {
+    try {
+        const response = await api.get("/video-summaries", {
+            params: { video_url: videoUrl },
+        });
+        return response.data;
+    } catch (error) {
+        console.error(
+            `Error fetching summaries for video URL ${videoUrl}:`,
+            error
+        );
+
+        // If there's a network error, return mock data
+        if (error.message === "Network Error") {
+            console.log(
+                "Network error detected, returning mock video summaries"
+            );
+            return {
+                video_url: videoUrl,
+                summaries: [],
+                count: 0,
+            };
+        }
+
+        throw error;
+    }
+};
+
 export default {
     validateYouTubeUrl,
     generateSummary,
@@ -268,4 +297,5 @@ export default {
     updateSummary,
     toggleStarSummary,
     deleteSummary,
+    getVideoSummaries,
 };
