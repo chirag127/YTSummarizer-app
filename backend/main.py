@@ -693,7 +693,7 @@ async def get_summary(summary_id: str, db=Depends(get_database)):
 
 @app.put("/summaries/{summary_id}", response_model=SummaryResponse)
 async def update_summary(summary_id: str, update_data: SummaryUpdate, db=Depends(get_database)):
-    """Update a summary with new parameters and regenerate."""
+    """Create a new summary with updated parameters instead of updating the existing one."""
     try:
         # Find the existing summary
         existing_summary = await db.summaries.find_one({"_id": ObjectId(summary_id)})
@@ -713,6 +713,24 @@ async def update_summary(summary_id: str, update_data: SummaryUpdate, db=Depends
         summary_type = update_data.summary_type or existing_summary["summary_type"]
         summary_length = update_data.summary_length or existing_summary["summary_length"]
 
+        # Check if we're actually changing the type or length
+        if summary_type == existing_summary["summary_type"] and summary_length == existing_summary["summary_length"]:
+            # No change, just return the existing summary
+            existing_summary["id"] = str(existing_summary.pop("_id"))
+            return SummaryResponse(**existing_summary)
+
+        # Check if a summary with these parameters already exists
+        existing_with_params = await db.summaries.find_one({
+            "video_url": existing_summary["video_url"],
+            "summary_type": summary_type,
+            "summary_length": summary_length
+        })
+
+        if existing_with_params:
+            # Return the existing summary with these parameters
+            existing_with_params["id"] = str(existing_with_params.pop("_id"))
+            return SummaryResponse(**existing_with_params)
+
         # Generate new summary
         summary_text = await generate_summary(
             video_info.get('transcript', "No transcript available"),
@@ -720,26 +738,27 @@ async def update_summary(summary_id: str, update_data: SummaryUpdate, db=Depends
             summary_length
         )
 
-        # Update the document
+        # Create a new summary document
         now = datetime.now(timezone.utc)
-        update_fields = {
+        new_summary = {
+            "video_url": existing_summary["video_url"],
+            "video_title": existing_summary["video_title"],
+            "video_thumbnail_url": existing_summary["video_thumbnail_url"],
             "summary_text": summary_text,
             "summary_type": summary_type,
             "summary_length": summary_length,
             "transcript_language": video_info.get('transcript_language'),
+            "is_starred": False,  # New summary starts unstarred
+            "created_at": now,
             "updated_at": now
         }
 
-        await db.summaries.update_one(
-            {"_id": ObjectId(summary_id)},
-            {"$set": update_fields}
-        )
+        # Insert the new summary
+        result = await db.summaries.insert_one(new_summary)
 
-        # Get the updated summary
-        updated_summary = await db.summaries.find_one({"_id": ObjectId(summary_id)})
-        updated_summary["id"] = str(updated_summary.pop("_id"))
-
-        return SummaryResponse(**updated_summary)
+        # Return the new summary
+        new_summary["id"] = str(result.inserted_id)
+        return SummaryResponse(**new_summary)
     except HTTPException:
         raise
     except Exception as e:

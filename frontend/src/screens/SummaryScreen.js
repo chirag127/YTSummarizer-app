@@ -296,7 +296,7 @@ const SummaryScreen = ({ route, navigation }) => {
         }
     };
 
-    // Handle save edit
+    // Handle save edit - creates a new summary with the selected type and length
     const handleSaveEdit = async () => {
         if (
             selectedType === summary.summary_type &&
@@ -309,20 +309,34 @@ const SummaryScreen = ({ route, navigation }) => {
         setIsLoading(true);
 
         try {
-            const updatedSummary = await updateSummary(
+            // This will create a new summary instead of updating the existing one
+            const newSummary = await updateSummary(
                 summary.id,
                 selectedType,
                 selectedLength
             );
 
-            // Close modal and update route params
+            // Close modal and update route params with the new summary
             setEditModalVisible(false);
-            navigation.setParams({ summary: updatedSummary });
+
+            // Refresh other summaries list to include the original summary
+            if (newSummary.id !== summary.id) {
+                // If we got a new summary (not just the same one returned)
+                const response = await getVideoSummaries(summary.video_url);
+                // Filter out the current (new) summary
+                const filteredSummaries = response.summaries.filter(
+                    (s) => s.id !== newSummary.id
+                );
+                setOtherSummaries(filteredSummaries);
+            }
+
+            // Navigate to the new summary
+            navigation.setParams({ summary: newSummary });
         } catch (error) {
-            console.error("Error updating summary:", error);
+            console.error("Error creating new summary:", error);
             Alert.alert(
                 "Error",
-                error.response?.data?.detail || "Failed to update summary."
+                error.response?.data?.detail || "Failed to create new summary."
             );
         } finally {
             setIsLoading(false);
@@ -340,7 +354,9 @@ const SummaryScreen = ({ route, navigation }) => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Edit Summary</Text>
+                        <Text style={styles.modalTitle}>
+                            Create New Summary
+                        </Text>
 
                         <Text style={styles.modalLabel}>Summary Type:</Text>
                         <View style={styles.optionsButtonGroup}>
@@ -419,7 +435,7 @@ const SummaryScreen = ({ route, navigation }) => {
                                     />
                                 ) : (
                                     <Text style={styles.modalButtonText}>
-                                        Save
+                                        Create
                                     </Text>
                                 )}
                             </TouchableOpacity>
@@ -776,8 +792,12 @@ const SummaryScreen = ({ route, navigation }) => {
                     style={styles.actionButton}
                     onPress={handleEdit}
                 >
-                    <Ionicons name="create" size={24} color={COLORS.primary} />
-                    <Text style={styles.actionButtonText}>Edit</Text>
+                    <Ionicons
+                        name="add-circle-outline"
+                        size={24}
+                        color={COLORS.primary}
+                    />
+                    <Text style={styles.actionButtonText}>New Type</Text>
                 </TouchableOpacity>
             </View>
         </View>
