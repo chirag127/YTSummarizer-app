@@ -184,8 +184,7 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
                      os.getenv("USER_PASS_ROTATE6"),
                      os.getenv("USER_PASS_ROTATE7"),
                      os.getenv("USER_PASS_ROTATE8"),
-                     os.getenv("USER_PASS_ROTATE9"),
-                     os.getenv("USER_PASS_ROTATE10")]
+                     os.getenv("USER_PASS_ROTATE9")]
         return random.choice(user_pass)
 
     def get_random_ip_port():
