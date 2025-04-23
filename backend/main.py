@@ -521,7 +521,10 @@ async def generate_summary(transcript: str, summary_type: str, summary_length: s
 
         # Configure generation parameters
         generate_content_config = types.GenerateContentConfig(
-            response_mime_type="text/plain"
+        thinking_config = types.ThinkingConfig(
+            thinking_budget=0,
+        ),
+        response_mime_type="text/plain",
         )
 
         # Generate content
