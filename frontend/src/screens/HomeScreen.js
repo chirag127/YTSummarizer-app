@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     StyleSheet,
     View,
@@ -39,6 +39,11 @@ const HomeScreen = ({ navigation, route }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [summaryType, setSummaryType] = useState(SUMMARY_TYPES[0].id);
     const [summaryLength, setSummaryLength] = useState(SUMMARY_LENGTHS[1].id);
+    const [elapsedTime, setElapsedTime] = useState(0);
+
+    // Refs
+    const timerRef = useRef(null);
+    const abortControllerRef = useRef(null);
 
     // Function to handle shared text (URLs)
     const handleSharedText = async () => {
@@ -83,6 +88,24 @@ const HomeScreen = ({ navigation, route }) => {
         }
     };
 
+    // Function to handle cancellation of summary generation
+    const handleCancelSummary = () => {
+        // Cancel the ongoing API request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+
+        // Stop the timer
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+
+        setIsLoading(false);
+        setElapsedTime(0);
+    };
+
     // Helper function to process a URL directly
     const processUrl = React.useCallback(
         async (urlToProcess) => {
@@ -90,29 +113,58 @@ const HomeScreen = ({ navigation, route }) => {
                 return;
             }
 
+            // Reset timer and start loading
+            setElapsedTime(0);
             setIsLoading(true);
+
+            // Create a new AbortController
+            abortControllerRef.current = new AbortController();
+
+            // Start the timer
+            const startTime = Date.now();
+            timerRef.current = setInterval(() => {
+                const currentTime = Date.now();
+                const elapsed = Math.floor((currentTime - startTime) / 1000);
+                setElapsedTime(elapsed);
+            }, 1000);
+
             try {
                 console.log("Processing URL directly:", urlToProcess);
 
                 // Process URL without showing alert popup
-
                 const summary = await generateSummary(
                     urlToProcess,
                     summaryType,
-                    summaryLength
+                    summaryLength,
+                    abortControllerRef.current.signal
                 );
+
+                // Include the time taken in the summary object
+                summary.timeTaken = elapsedTime;
+
                 navigation.navigate(SCREENS.SUMMARY, { summary });
             } catch (error) {
                 console.error("Error processing URL:", error);
-                Alert.alert(
-                    "Error",
-                    "Failed to process the URL. Please try again."
-                );
+
+                // Only show alert if not aborted by user
+                if (error.name !== "AbortError") {
+                    Alert.alert(
+                        "Error",
+                        "Failed to process the URL. Please try again."
+                    );
+                }
             } finally {
+                // Clean up timer
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                }
+
                 setIsLoading(false);
+                abortControllerRef.current = null;
             }
         },
-        [summaryType, summaryLength, navigation]
+        [summaryType, summaryLength, navigation, elapsedTime]
     );
 
     // Load last used settings and check for shared content
@@ -348,26 +400,46 @@ const HomeScreen = ({ navigation, route }) => {
                     {renderSummaryTypeOptions()}
                     {renderSummaryLengthOptions()}
 
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={handleSubmit}
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <ActivityIndicator color={COLORS.background} />
-                        ) : (
-                            <>
-                                <Ionicons
-                                    name="document-text"
-                                    size={20}
-                                    color={COLORS.background}
+                    {isLoading ? (
+                        <View style={styles.loadingContainer}>
+                            <View style={styles.loadingInfo}>
+                                <ActivityIndicator
+                                    color={COLORS.primary}
+                                    size="small"
                                 />
-                                <Text style={styles.buttonText}>
-                                    Generate Summary
+                                <Text style={styles.loadingText}>
+                                    Generating summary... {elapsedTime}s
                                 </Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={handleCancelSummary}
+                            >
+                                <Ionicons
+                                    name="close-circle"
+                                    size={20}
+                                    color={COLORS.error}
+                                />
+                                <Text style={styles.cancelButtonText}>
+                                    Stop
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.button}
+                            onPress={handleSubmit}
+                        >
+                            <Ionicons
+                                name="document-text"
+                                size={20}
+                                color={COLORS.background}
+                            />
+                            <Text style={styles.buttonText}>
+                                Generate Summary
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -481,6 +553,41 @@ const styles = StyleSheet.create({
     },
     buttonText: {
         color: COLORS.background,
+        fontSize: FONT_SIZES.md,
+        fontWeight: "600",
+        marginLeft: SPACING.sm,
+    },
+    loadingContainer: {
+        marginTop: SPACING.md,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surface,
+        padding: SPACING.md,
+    },
+    loadingInfo: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: SPACING.md,
+    },
+    loadingText: {
+        marginLeft: SPACING.md,
+        fontSize: FONT_SIZES.md,
+        color: COLORS.text,
+    },
+    cancelButton: {
+        backgroundColor: COLORS.surface,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: COLORS.error,
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.md,
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    cancelButtonText: {
+        color: COLORS.error,
         fontSize: FONT_SIZES.md,
         fontWeight: "600",
         marginLeft: SPACING.sm,

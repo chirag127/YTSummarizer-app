@@ -513,6 +513,16 @@ const SummaryScreen = ({ route, navigation }) => {
                                 {formatDate(summary.created_at)}
                             </Text>
                         </View>
+                        {summary.timeTaken !== undefined && (
+                            <View style={styles.summaryTypeItem}>
+                                <Text style={styles.summaryTypeLabel}>
+                                    Time Taken:
+                                </Text>
+                                <Text style={styles.summaryTypeValue}>
+                                    {summary.timeTaken} seconds
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
 

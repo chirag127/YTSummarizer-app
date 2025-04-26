@@ -31,16 +31,33 @@ export const validateYouTubeUrl = async (url) => {
     return { valid: true, has_transcript: true };
 };
 
-export const generateSummary = async (url, summaryType, summaryLength) => {
+export const generateSummary = async (
+    url,
+    summaryType,
+    summaryLength,
+    signal
+) => {
     try {
-        const response = await api.post("/generate-summary", {
-            url,
-            summary_type: summaryType,
-            summary_length: summaryLength,
-        });
+        const response = await api.post(
+            "/generate-summary",
+            {
+                url,
+                summary_type: summaryType,
+                summary_length: summaryLength,
+            },
+            { signal }
+        ); // Pass the abort signal to axios
+
         return response.data;
     } catch (error) {
         console.error("Error generating summary:", error);
+
+        // Check if the request was aborted
+        if (error.name === "AbortError" || error.name === "CanceledError") {
+            console.log("Request was cancelled by user");
+            throw error; // Re-throw to be handled by the caller
+        }
+
         // If there's a network error, try to continue with a fallback
         if (error.message === "Network Error") {
             console.log("Network error detected, using fallback method");
