@@ -262,3 +262,5 @@ def generate():
 if __name__ == "__main__":
     generate()
 ```
+
+The time taken should be saved in the database 

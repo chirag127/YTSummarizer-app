@@ -9,6 +9,15 @@ const DEFAULT_SETTINGS = {
     voice: null, // Default voice
 };
 
+// Maximum text length for TTS (characters)
+// This is a conservative limit to avoid issues with different platforms
+const MAX_TTS_CHUNK_LENGTH = 3000;
+
+// Global state for chunked speech
+let currentChunkIndex = 0;
+let textChunks = [];
+let isPlayingChunks = false;
+
 // Global callback handlers
 let onBoundaryCallback = null;
 let onDoneCallback = null;
@@ -71,6 +80,60 @@ export const clearSpeechCallbacks = () => {
     onStoppedCallback = null;
 };
 
+// Split text into manageable chunks for TTS
+const splitTextIntoChunks = (text) => {
+    if (!text) return [];
+
+    // If text is shorter than the max length, return it as a single chunk
+    if (text.length <= MAX_TTS_CHUNK_LENGTH) {
+        return [text];
+    }
+
+    const chunks = [];
+    let startIndex = 0;
+
+    while (startIndex < text.length) {
+        // Find a good breaking point (end of sentence) within the max length
+        let endIndex = startIndex + MAX_TTS_CHUNK_LENGTH;
+
+        // If we're not at the end of the text
+        if (endIndex < text.length) {
+            // Look for the last sentence break before the max length
+            const lastSentenceBreak = text
+                .substring(startIndex, endIndex)
+                .lastIndexOf(". ");
+
+            if (lastSentenceBreak !== -1) {
+                // Found a sentence break, use it as the end point (add 2 to include the period and space)
+                endIndex = startIndex + lastSentenceBreak + 2;
+            } else {
+                // No sentence break found, look for other punctuation or spaces
+                const lastBreak = Math.max(
+                    text.substring(startIndex, endIndex).lastIndexOf(". "),
+                    text.substring(startIndex, endIndex).lastIndexOf("! "),
+                    text.substring(startIndex, endIndex).lastIndexOf("? "),
+                    text.substring(startIndex, endIndex).lastIndexOf("\n"),
+                    text.substring(startIndex, endIndex).lastIndexOf(" ")
+                );
+
+                if (lastBreak !== -1) {
+                    // Found a break point, use it
+                    endIndex = startIndex + lastBreak + 1;
+                }
+                // If no break point is found, we'll use the max length
+            }
+        }
+
+        // Add the chunk
+        chunks.push(text.substring(startIndex, endIndex));
+
+        // Move to the next chunk
+        startIndex = endIndex;
+    }
+
+    return chunks;
+};
+
 // Process text to split into sentences and words for highlighting
 export const processTextForSpeech = (text) => {
     // Split text into sentences
@@ -108,20 +171,19 @@ export const processTextForSpeech = (text) => {
     };
 };
 
-// Speak text with current settings
-export const speakText = async (text, startSentenceIndex = 0) => {
+// Speak a single chunk of text
+const speakChunk = async (
+    chunk,
+    settings,
+    startSentenceIndex = 0,
+    isLastChunk = false
+) => {
     try {
-        // Get current settings
-        const settings = await getTTSSettings();
-
-        // Stop any ongoing speech
-        await Speech.stop();
-
         // Process text for speech
-        const processedText = processTextForSpeech(text);
+        const processedText = processTextForSpeech(chunk);
 
         // If starting from a specific sentence, adjust the text
-        let speakingText = text;
+        let speakingText = chunk;
         let startCharIndex = 0;
 
         if (
@@ -134,7 +196,7 @@ export const speakText = async (text, startSentenceIndex = 0) => {
             );
             if (sentenceWords.length > 0) {
                 startCharIndex = sentenceWords[0].startChar;
-                speakingText = text.substring(startCharIndex);
+                speakingText = chunk.substring(startCharIndex);
             }
         }
 
@@ -144,18 +206,38 @@ export const speakText = async (text, startSentenceIndex = 0) => {
             pitch: settings.pitch,
             voice: settings.voice,
             onStart: () => {
-                console.log("Started speaking");
-                if (onStartCallback) onStartCallback(startSentenceIndex);
+                console.log("Started speaking chunk");
+                if (onStartCallback && currentChunkIndex === 0) {
+                    onStartCallback(startSentenceIndex);
+                }
             },
             onDone: () => {
-                console.log("Done speaking");
-                if (onDoneCallback) onDoneCallback();
+                console.log("Done speaking chunk");
+
+                // If this is the last chunk or chunking was stopped, call the done callback
+                if (isLastChunk || !isPlayingChunks) {
+                    if (onDoneCallback) onDoneCallback();
+                } else {
+                    // Move to the next chunk
+                    currentChunkIndex++;
+                    if (
+                        currentChunkIndex < textChunks.length &&
+                        isPlayingChunks
+                    ) {
+                        speakChunk(
+                            textChunks[currentChunkIndex],
+                            settings,
+                            0,
+                            currentChunkIndex === textChunks.length - 1
+                        );
+                    }
+                }
             },
             onStopped: () => {
-                console.log("Stopped speaking");
+                console.log("Stopped speaking chunk");
                 if (onStoppedCallback) onStoppedCallback();
             },
-            onError: (error) => console.error("Error speaking:", error),
+            onError: (error) => console.error("Error speaking chunk:", error),
             onBoundary: (event) => {
                 if (onBoundaryCallback) {
                     // Adjust the character index if we're starting from a specific sentence
@@ -223,7 +305,47 @@ export const speakText = async (text, startSentenceIndex = 0) => {
 
         return true;
     } catch (error) {
+        console.error("Error speaking chunk:", error);
+        return false;
+    }
+};
+
+// Speak text with current settings
+export const speakText = async (text, startSentenceIndex = 0) => {
+    try {
+        // Get current settings
+        const settings = await getTTSSettings();
+
+        // Stop any ongoing speech
+        await stopSpeaking();
+
+        // Reset chunking state
+        isPlayingChunks = false;
+
+        // Split text into manageable chunks
+        textChunks = splitTextIntoChunks(text);
+
+        if (textChunks.length === 0) {
+            console.error("No text to speak");
+            return false;
+        }
+
+        // Set chunking state
+        currentChunkIndex = 0;
+        isPlayingChunks = true;
+
+        // Start speaking the first chunk
+        const success = await speakChunk(
+            textChunks[0],
+            settings,
+            startSentenceIndex,
+            textChunks.length === 1
+        );
+
+        return success;
+    } catch (error) {
         console.error("Error speaking text:", error);
+        isPlayingChunks = false;
         return false;
     }
 };
@@ -231,6 +353,10 @@ export const speakText = async (text, startSentenceIndex = 0) => {
 // Stop speaking
 export const stopSpeaking = async () => {
     try {
+        // Stop the chunking process
+        isPlayingChunks = false;
+
+        // Stop any ongoing speech
         await Speech.stop();
         return true;
     } catch (error) {

@@ -324,14 +324,27 @@ const HistoryScreen = ({ navigation }) => {
                 <Text style={styles.emptySubtext}>
                     Summaries you generate will appear here
                 </Text>
-                <TouchableOpacity
-                    style={styles.newSummaryButton}
-                    onPress={() => navigation.navigate("HomeTab")}
-                >
-                    <Text style={styles.newSummaryButtonText}>
-                        Create New Summary
-                    </Text>
-                </TouchableOpacity>
+                <View style={styles.emptyButtonsContainer}>
+                    <TouchableOpacity
+                        style={styles.reloadButton}
+                        onPress={() => fetchSummaries()}
+                    >
+                        <Ionicons
+                            name="refresh-outline"
+                            size={20}
+                            color={COLORS.background}
+                        />
+                        <Text style={styles.reloadButtonText}>Reload</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.newSummaryButton}
+                        onPress={() => navigation.navigate("HomeTab")}
+                    >
+                        <Text style={styles.newSummaryButtonText}>
+                            Create New Summary
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         );
     };
@@ -477,14 +490,32 @@ const styles = StyleSheet.create({
         marginTop: SPACING.sm,
         textAlign: "center",
     },
-    newSummaryButton: {
+    emptyButtonsContainer: {
+        flexDirection: "row",
         marginTop: SPACING.lg,
+        gap: SPACING.md,
+    },
+    newSummaryButton: {
         backgroundColor: COLORS.primary,
         paddingVertical: SPACING.sm,
         paddingHorizontal: SPACING.lg,
         borderRadius: 8,
     },
     newSummaryButtonText: {
+        color: COLORS.background,
+        fontSize: FONT_SIZES.md,
+        fontWeight: "600",
+    },
+    reloadButton: {
+        backgroundColor: COLORS.secondary,
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.lg,
+        borderRadius: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACING.xs,
+    },
+    reloadButtonText: {
         color: COLORS.background,
         fontSize: FONT_SIZES.md,
         fontWeight: "600",
