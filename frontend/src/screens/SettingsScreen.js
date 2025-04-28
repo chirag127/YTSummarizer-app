@@ -9,10 +9,12 @@ import {
     ActivityIndicator,
     Alert,
     Platform,
+    TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
 
 // Import components, services, and utilities
 import {
@@ -20,6 +22,13 @@ import {
     saveTTSSettings,
     getAvailableVoices,
 } from "../services/tts";
+import {
+    saveApiKey,
+    getApiKey,
+    clearApiKey,
+    testApiKey,
+    hasApiKey,
+} from "../services/apiKeyService";
 import {
     COLORS,
     SPACING,
@@ -39,7 +48,13 @@ const SettingsScreen = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Load settings and voices
+    // API Key state
+    const [apiKey, setApiKey] = useState("");
+    const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
+    const [isTestingApiKey, setIsTestingApiKey] = useState(false);
+    const [apiKeyVisible, setApiKeyVisible] = useState(false);
+
+    // Load settings, voices, and API key
     useEffect(() => {
         const loadSettings = async () => {
             setIsLoading(true);
@@ -51,6 +66,24 @@ const SettingsScreen = () => {
                 // Load voices
                 const availableVoices = await getAvailableVoices();
                 setVoices(availableVoices);
+
+                // Check if user has stored API key
+                const hasKey = await hasApiKey();
+                setHasStoredApiKey(hasKey);
+
+                // If we have a stored key, get a masked version for display
+                if (hasKey) {
+                    const storedKey = await getApiKey();
+                    if (storedKey) {
+                        // Mask the API key for display (show only last 4 characters)
+                        const maskedKey =
+                            storedKey.length > 4
+                                ? "•".repeat(storedKey.length - 4) +
+                                  storedKey.slice(-4)
+                                : storedKey;
+                        setApiKey(maskedKey);
+                    }
+                }
             } catch (error) {
                 console.error("Error loading settings:", error);
                 Alert.alert("Error", "Failed to load settings.");
@@ -273,15 +306,248 @@ const SettingsScreen = () => {
         );
     }
 
+    // Handle API key change
+    const handleApiKeyChange = (text) => {
+        setApiKey(text);
+    };
+
+    // Save API key
+    const handleSaveApiKey = async () => {
+        if (!apiKey.trim()) {
+            Alert.alert("Error", "Please enter a valid API key.");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const success = await saveApiKey(apiKey.trim());
+            if (success) {
+                setHasStoredApiKey(true);
+                Alert.alert("Success", "API key saved successfully.");
+            } else {
+                Alert.alert("Error", "Failed to save API key.");
+            }
+        } catch (error) {
+            console.error("Error saving API key:", error);
+            Alert.alert("Error", "Failed to save API key.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Test API key
+    const handleTestApiKey = async () => {
+        if (!apiKey.trim()) {
+            Alert.alert("Error", "Please enter a valid API key.");
+            return;
+        }
+
+        setIsTestingApiKey(true);
+        try {
+            const result = await testApiKey(apiKey.trim());
+            if (result.isValid) {
+                Alert.alert("Success", "API key is valid!");
+            } else {
+                Alert.alert("Error", result.message);
+            }
+        } catch (error) {
+            console.error("Error testing API key:", error);
+            Alert.alert("Error", "Failed to test API key.");
+        } finally {
+            setIsTestingApiKey(false);
+        }
+    };
+
+    // Clear API key
+    const handleClearApiKey = async () => {
+        Alert.alert(
+            "Clear API Key",
+            "Are you sure you want to remove your API key? The app will use the default key instead.",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: "Clear",
+                    style: "destructive",
+                    onPress: async () => {
+                        setIsSaving(true);
+                        try {
+                            const success = await clearApiKey();
+                            if (success) {
+                                setApiKey("");
+                                setHasStoredApiKey(false);
+                                Alert.alert(
+                                    "Success",
+                                    "API key removed successfully."
+                                );
+                            } else {
+                                Alert.alert(
+                                    "Error",
+                                    "Failed to remove API key."
+                                );
+                            }
+                        } catch (error) {
+                            console.error("Error clearing API key:", error);
+                            Alert.alert("Error", "Failed to remove API key.");
+                        } finally {
+                            setIsSaving(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // Open Google AI Studio website
+    const handleOpenGoogleAIStudio = () => {
+        Linking.openURL("https://makersuite.google.com/app/apikey");
+    };
+
+    // Render API key section
+    const renderApiKeySection = () => {
+        return (
+            <View style={styles.settingSection}>
+                <Text style={styles.settingTitle}>Gemini API Key</Text>
+                <Text style={styles.settingDescription}>
+                    Enter your own Google Gemini API key to use for generating
+                    summaries
+                </Text>
+
+                <View style={styles.apiKeyInputContainer}>
+                    <TextInput
+                        style={styles.apiKeyInput}
+                        value={apiKey}
+                        onChangeText={handleApiKeyChange}
+                        placeholder="Enter your Gemini API key"
+                        placeholderTextColor={COLORS.textSecondary}
+                        secureTextEntry={!apiKeyVisible}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                    />
+                    <TouchableOpacity
+                        style={styles.visibilityButton}
+                        onPress={() => setApiKeyVisible(!apiKeyVisible)}
+                    >
+                        <Ionicons
+                            name={apiKeyVisible ? "eye-off" : "eye"}
+                            size={24}
+                            color={COLORS.textSecondary}
+                        />
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.apiKeyButtonsContainer}>
+                    <TouchableOpacity
+                        style={[styles.apiKeyButton, styles.saveButton]}
+                        onPress={handleSaveApiKey}
+                        disabled={isSaving}
+                    >
+                        {isSaving ? (
+                            <ActivityIndicator
+                                size="small"
+                                color={COLORS.background}
+                            />
+                        ) : (
+                            <>
+                                <Ionicons
+                                    name="save"
+                                    size={18}
+                                    color={COLORS.background}
+                                />
+                                <Text style={styles.apiKeyButtonText}>
+                                    Save
+                                </Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.apiKeyButton, styles.testButton]}
+                        onPress={handleTestApiKey}
+                        disabled={isTestingApiKey}
+                    >
+                        {isTestingApiKey ? (
+                            <ActivityIndicator
+                                size="small"
+                                color={COLORS.background}
+                            />
+                        ) : (
+                            <>
+                                <Ionicons
+                                    name="checkmark-circle"
+                                    size={18}
+                                    color={COLORS.background}
+                                />
+                                <Text style={styles.apiKeyButtonText}>
+                                    Test
+                                </Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+
+                    {hasStoredApiKey && (
+                        <TouchableOpacity
+                            style={[styles.apiKeyButton, styles.clearButton]}
+                            onPress={handleClearApiKey}
+                            disabled={isSaving}
+                        >
+                            <Ionicons
+                                name="trash"
+                                size={18}
+                                color={COLORS.background}
+                            />
+                            <Text style={styles.apiKeyButtonText}>Clear</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <TouchableOpacity
+                    style={styles.getApiKeyLink}
+                    onPress={handleOpenGoogleAIStudio}
+                >
+                    <Text style={styles.getApiKeyText}>
+                        Get a Gemini API key from Google AI Studio
+                    </Text>
+                    <Ionicons
+                        name="open-outline"
+                        size={16}
+                        color={COLORS.primary}
+                    />
+                </TouchableOpacity>
+
+                <View style={styles.apiKeyInfoContainer}>
+                    <Ionicons
+                        name="information-circle"
+                        size={20}
+                        color={COLORS.textSecondary}
+                    />
+                    <Text style={styles.apiKeyInfoText}>
+                        Using your own API key will count against your personal
+                        quota. Your key is stored securely on your device and is
+                        never shared.
+                    </Text>
+                </View>
+            </View>
+        );
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>
-                        Text-to-Speech Settings
-                    </Text>
+                    <Text style={styles.headerTitle}>Settings</Text>
                     <Text style={styles.headerSubtitle}>
-                        Customize how summaries are read aloud
+                        Customize your YouTube Summarizer experience
+                    </Text>
+                </View>
+
+                {renderApiKeySection()}
+
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionHeaderText}>
+                        Text-to-Speech Settings
                     </Text>
                 </View>
 
@@ -335,6 +601,18 @@ const styles = StyleSheet.create({
     headerSubtitle: {
         fontSize: FONT_SIZES.md,
         color: COLORS.textSecondary,
+    },
+    sectionHeader: {
+        marginTop: SPACING.xl,
+        marginBottom: SPACING.md,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+        paddingBottom: SPACING.sm,
+    },
+    sectionHeaderText: {
+        fontSize: FONT_SIZES.lg,
+        fontWeight: "600",
+        color: COLORS.text,
     },
     settingSection: {
         marginBottom: SPACING.xl,
@@ -438,6 +716,79 @@ const styles = StyleSheet.create({
         color: COLORS.background,
         fontSize: FONT_SIZES.md,
         fontWeight: "600",
+        marginLeft: SPACING.sm,
+    },
+    // API Key styles
+    apiKeyInputContainer: {
+        flexDirection: "row",
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        borderRadius: 8,
+        marginBottom: SPACING.md,
+        backgroundColor: COLORS.background,
+    },
+    apiKeyInput: {
+        flex: 1,
+        paddingVertical: SPACING.md,
+        paddingHorizontal: SPACING.md,
+        color: COLORS.text,
+        fontSize: FONT_SIZES.md,
+    },
+    visibilityButton: {
+        padding: SPACING.md,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    apiKeyButtonsContainer: {
+        flexDirection: "row",
+        marginBottom: SPACING.md,
+    },
+    apiKeyButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.md,
+        borderRadius: 8,
+        marginRight: SPACING.md,
+    },
+    saveButton: {
+        backgroundColor: COLORS.primary,
+    },
+    testButton: {
+        backgroundColor: COLORS.success,
+    },
+    clearButton: {
+        backgroundColor: COLORS.error,
+    },
+    apiKeyButtonText: {
+        color: COLORS.background,
+        fontSize: FONT_SIZES.sm,
+        fontWeight: "600",
+        marginLeft: SPACING.xs,
+    },
+    getApiKeyLink: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: SPACING.md,
+    },
+    getApiKeyText: {
+        color: COLORS.primary,
+        fontSize: FONT_SIZES.sm,
+        marginRight: SPACING.xs,
+        textDecorationLine: "underline",
+    },
+    apiKeyInfoContainer: {
+        flexDirection: "row",
+        backgroundColor: COLORS.infoBackground,
+        padding: SPACING.md,
+        borderRadius: 8,
+        alignItems: "flex-start",
+    },
+    apiKeyInfoText: {
+        flex: 1,
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.textSecondary,
         marginLeft: SPACING.sm,
     },
     aboutSection: {

@@ -459,15 +459,29 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
             'error': str(e)
         }
 
-async def generate_summary(transcript: str, summary_type: str, summary_length: str) -> str:
-    """Generate summary using Gemini API."""
-    if not GEMINI_API_KEY:
+async def generate_summary(transcript: str, summary_type: str, summary_length: str, user_api_key: str = None) -> str:
+    """Generate summary using Gemini API.
+
+    Args:
+        transcript: The video transcript text
+        summary_type: The type of summary to generate
+        summary_length: The desired length of the summary
+        user_api_key: Optional user-provided API key
+
+    Returns:
+        The generated summary text
+    """
+    # Use user-provided API key if available, otherwise use the default key
+    api_key = user_api_key if user_api_key else GEMINI_API_KEY
+
+    if not api_key:
         return "API key not configured. Unable to generate summary."
+
     print("Generating summary...")
     # print(f"Transcript: {transcript}")
     try:
-        # Create Gemini client
-        client = google.genai.Client(api_key=GEMINI_API_KEY)
+        # Create Gemini client with the appropriate API key
+        client = google.genai.Client(api_key=api_key)
         # model = "gemini-2.0-flash-lite"
         model="gemini-2.5-flash-preview-04-17"
 
@@ -577,8 +591,11 @@ async def validate_url(youtube_url: YouTubeURL):
         raise HTTPException(status_code=500, detail=f"Error processing URL: {str(e)}")
 
 @app.post("/generate-summary", response_model=SummaryResponse)
-async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database)):
-    """Generate summary for a YouTube video and store it."""
+async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_user_api_key: str = None):
+    """Generate summary for a YouTube video and store it.
+
+    The user can optionally provide their own Gemini API key via the X-User-API-Key header.
+    """
     url = str(youtube_url.url)
 
     if not is_valid_youtube_url(url):
@@ -606,12 +623,27 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database)):
             detail="No transcript/captions available for this video. Cannot generate summary."
         )
 
-    # Generate summary
-    summary_text = await generate_summary(
-        video_info.get('transcript', "No transcript available"),
-        youtube_url.summary_type,
-        youtube_url.summary_length
-    )
+    # Get user API key from header if provided
+    user_api_key = x_user_api_key
+
+    # Generate summary with user API key if provided
+    try:
+        summary_text = await generate_summary(
+            video_info.get('transcript', "No transcript available"),
+            youtube_url.summary_type,
+            youtube_url.summary_length,
+            user_api_key
+        )
+    except Exception as e:
+        # If there's an error with the user's API key, log it and return a specific error
+        if user_api_key:
+            logger.error(f"Error generating summary with user API key: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail="Failed to generate summary with your API key. Please check if your API key is valid and has sufficient quota."
+            )
+        # If using the default API key, re-raise the exception
+        raise
 
     # Create summary document
     now = datetime.now(timezone.utc)
@@ -694,8 +726,11 @@ async def get_summary(summary_id: str, db=Depends(get_database)):
         raise HTTPException(status_code=500, detail=f"Error retrieving summary: {str(e)}")
 
 @app.put("/summaries/{summary_id}", response_model=SummaryResponse)
-async def update_summary(summary_id: str, update_data: SummaryUpdate, db=Depends(get_database)):
-    """Create a new summary with updated parameters instead of updating the existing one."""
+async def update_summary(summary_id: str, update_data: SummaryUpdate, db=Depends(get_database), x_user_api_key: str = None):
+    """Create a new summary with updated parameters instead of updating the existing one.
+
+    The user can optionally provide their own Gemini API key via the X-User-API-Key header.
+    """
     try:
         # Find the existing summary
         existing_summary = await db.summaries.find_one({"_id": ObjectId(summary_id)})
@@ -733,12 +768,27 @@ async def update_summary(summary_id: str, update_data: SummaryUpdate, db=Depends
             existing_with_params["id"] = str(existing_with_params.pop("_id"))
             return SummaryResponse(**existing_with_params)
 
-        # Generate new summary
-        summary_text = await generate_summary(
-            video_info.get('transcript', "No transcript available"),
-            summary_type,
-            summary_length
-        )
+        # Get user API key from header if provided
+        user_api_key = x_user_api_key
+
+        # Generate new summary with user API key if provided
+        try:
+            summary_text = await generate_summary(
+                video_info.get('transcript', "No transcript available"),
+                summary_type,
+                summary_length,
+                user_api_key
+            )
+        except Exception as e:
+            # If there's an error with the user's API key, log it and return a specific error
+            if user_api_key:
+                logger.error(f"Error generating summary with user API key: {e}")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Failed to generate summary with your API key. Please check if your API key is valid and has sufficient quota."
+                )
+            # If using the default API key, re-raise the exception
+            raise
 
         # Create a new summary document
         now = datetime.now(timezone.utc)

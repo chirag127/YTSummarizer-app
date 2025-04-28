@@ -19,12 +19,14 @@ export const COLORS = {
     secondary: "#34A853", // Google Green
     accent: "#FBBC05", // Google Yellow
     error: "#EA4335", // Google Red
+    success: "#34A853", // Google Green
     background: "#FFFFFF", // White
     surface: "#F8F9FA", // Light Gray
     text: "#202124", // Dark Gray
     textSecondary: "#5F6368", // Medium Gray
     border: "#DADCE0", // Light Border
     disabled: "#E8EAED", // Disabled Gray
+    infoBackground: "#E8F0FE", // Light Blue Background
 };
 
 // Spacing

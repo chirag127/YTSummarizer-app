@@ -6,7 +6,7 @@ Okay, here is a Product Requirements Document (PRD) for the feature "Allow the u
 
 **1. Introduction**
 
-*   **Feature:** Allow users to input and use their own Google Gemini API key within the YTSummarizer application.
+*   **Feature:** Allow users to input and use their own Google Gemini API key within the YTSummarizer application. show that the user-provided key is needed for the app to function correctly on the homescreen.
 *   **Overview:** Currently, YTSummarizer uses a centrally managed API key for interacting with the Google Gemini service. This feature will introduce an option for users to provide their personal Gemini API key. When a user provides their key, the application will use it for all subsequent summary generation requests made by that user, potentially bypassing default rate limits or costs associated with the app's built-in key.
 *   **Context:** This feature provides flexibility for users who may have their own Gemini API subscriptions, higher usage quotas, or prefer to manage their own API usage costs and tracking. It can also serve as a mechanism for the application maintainers to manage API costs associated with heavy usage.
 

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getApiKey } from "./apiKeyService";
 
 // Base URL for API calls - change this to your backend URL
 const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
@@ -11,6 +12,25 @@ const api = axios.create({
         "Content-Type": "application/json",
     },
 });
+
+// Add request interceptor to include user API key if available
+api.interceptors.request.use(
+    async (config) => {
+        try {
+            const userApiKey = await getApiKey();
+            if (userApiKey) {
+                config.headers["X-User-API-Key"] = userApiKey;
+            }
+        } catch (error) {
+            console.error("Error retrieving API key:", error);
+            // Continue with the request even if we couldn't get the API key
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
 // Add response interceptor to handle errors globally
 api.interceptors.response.use(
