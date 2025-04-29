@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
+import Slider from "@react-native-community/slider";
 
 // Import components, services, and utilities
 import {
@@ -144,36 +145,100 @@ const SettingsScreen = () => {
         }
     };
 
-    // Render rate options
+    // Render rate options with slider
     const renderRateOptions = () => {
+        // Find the closest preset rate option for visual feedback
+        const getClosestRateLabel = (rate) => {
+            // Find the closest rate option
+            const closest = TTS_RATE_OPTIONS.reduce((prev, curr) => {
+                return Math.abs(curr.value - rate) < Math.abs(prev.value - rate)
+                    ? curr
+                    : prev;
+            });
+            return closest.label;
+        };
+
+        // Calculate the color for the rate indicator based on the current rate
+        const getRateColor = (rate) => {
+            // Normalize the rate between 0 and 1 for color interpolation
+            // Assuming min rate is 0.5 and max rate is 16.0
+            const normalizedRate = Math.min(
+                Math.max((rate - 0.5) / 15.5, 0),
+                1
+            );
+
+            // Interpolate between blue (slow) and red (fast)
+            const r = Math.round(normalizedRate * 255);
+            const g = Math.round(50 + (1 - normalizedRate) * 100);
+            const b = Math.round(255 - normalizedRate * 255);
+
+            return `rgb(${r}, ${g}, ${b})`;
+        };
+
         return (
             <View style={styles.settingSection}>
                 <Text style={styles.settingTitle}>Speech Rate</Text>
                 <Text style={styles.settingDescription}>
                     Adjust how fast the text is read aloud
                 </Text>
-                <View style={styles.optionsContainer}>
-                    {TTS_RATE_OPTIONS.map((option) => (
-                        <TouchableOpacity
-                            key={option.value}
-                            style={[
-                                styles.optionButton,
-                                settings.rate === option.value &&
-                                    styles.optionButtonSelected,
-                            ]}
-                            onPress={() => handleRateChange(option.value)}
-                        >
+
+                <View style={styles.sliderContainer}>
+                    <View style={styles.sliderLabelsContainer}>
+                        <Text style={styles.sliderLabel}>Slow</Text>
+                        <View style={styles.currentRateContainer}>
                             <Text
                                 style={[
-                                    styles.optionButtonText,
-                                    settings.rate === option.value &&
-                                        styles.optionButtonTextSelected,
+                                    styles.currentRateValue,
+                                    { color: getRateColor(settings.rate) },
                                 ]}
                             >
-                                {option.label}
+                                {settings.rate.toFixed(2)}x
                             </Text>
-                        </TouchableOpacity>
-                    ))}
+                            <Text style={styles.currentRateLabel}>
+                                {getClosestRateLabel(settings.rate)}
+                            </Text>
+                        </View>
+                        <Text style={styles.sliderLabel}>Fast</Text>
+                    </View>
+
+                    <Slider
+                        style={styles.slider}
+                        minimumValue={0.5}
+                        maximumValue={16.0}
+                        step={0.1}
+                        value={settings.rate}
+                        onValueChange={(value) =>
+                            setSettings((prev) => ({ ...prev, rate: value }))
+                        }
+                        onSlidingComplete={(value) => handleRateChange(value)}
+                        minimumTrackTintColor={getRateColor(settings.rate)}
+                        maximumTrackTintColor={COLORS.border}
+                        thumbTintColor={getRateColor(settings.rate)}
+                    />
+
+                    <View style={styles.presetButtonsContainer}>
+                        {[0.5, 1.0, 1.5, 2.0, 2.5, 3.0].map((rate) => (
+                            <TouchableOpacity
+                                key={rate}
+                                style={[
+                                    styles.presetButton,
+                                    Math.abs(settings.rate - rate) < 0.1 &&
+                                        styles.presetButtonSelected,
+                                ]}
+                                onPress={() => handleRateChange(rate)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.presetButtonText,
+                                        Math.abs(settings.rate - rate) < 0.1 &&
+                                            styles.presetButtonTextSelected,
+                                    ]}
+                                >
+                                    {rate.toFixed(1)}x
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
             </View>
         );
@@ -654,6 +719,60 @@ const styles = StyleSheet.create({
         color: COLORS.text,
     },
     optionButtonTextSelected: {
+        color: COLORS.background,
+    },
+    // Slider styles
+    sliderContainer: {
+        marginVertical: SPACING.md,
+    },
+    sliderLabelsContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: SPACING.sm,
+    },
+    sliderLabel: {
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.textSecondary,
+    },
+    currentRateContainer: {
+        alignItems: "center",
+    },
+    currentRateValue: {
+        fontSize: FONT_SIZES.lg,
+        fontWeight: "bold",
+    },
+    currentRateLabel: {
+        fontSize: FONT_SIZES.xs,
+        color: COLORS.textSecondary,
+        marginTop: 2,
+    },
+    slider: {
+        width: "100%",
+        height: 40,
+    },
+    presetButtonsContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: SPACING.sm,
+    },
+    presetButton: {
+        paddingVertical: SPACING.xs,
+        paddingHorizontal: SPACING.sm,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.background,
+    },
+    presetButtonSelected: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    presetButtonText: {
+        fontSize: FONT_SIZES.xs,
+        color: COLORS.text,
+    },
+    presetButtonTextSelected: {
         color: COLORS.background,
     },
     languageSection: {
