@@ -11,7 +11,6 @@ Custom summary templates: Let users create and save their own summary templates
 Batch processing: Allow users to submit multiple YouTube URLs for summarization at once
 3. Enhanced Text-to-Speech
 Voice customization: Add more voice options and customization settings
-Speed control with visual indicator: Add a slider for TTS speed with visual feedback
 Export audio: Allow users to export the summary as an audio file
 Background playback: Continue TTS playback when app is in background
 4. Content Organization
