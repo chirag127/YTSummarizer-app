@@ -301,9 +301,57 @@ const SettingsScreen = () => {
                     Choose a voice for text-to-speech
                 </Text>
                 {voices.length === 0 ? (
-                    <Text style={styles.noVoicesText}>
-                        No voices available on this device
-                    </Text>
+                    <View style={styles.noVoicesContainer}>
+                        <Text style={styles.noVoicesText}>
+                            No voices available on this device
+                        </Text>
+                        <Text style={styles.noVoicesSubtext}>
+                            The app will use the system default voice. You can
+                            still adjust the rate and pitch settings above.
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.refreshVoicesButton}
+                            onPress={async () => {
+                                setIsLoading(true);
+                                try {
+                                    const availableVoices =
+                                        await getAvailableVoices();
+                                    setVoices(availableVoices);
+                                    if (availableVoices.length > 0) {
+                                        Alert.alert(
+                                            "Success",
+                                            `Found ${availableVoices.length} voices on your device.`
+                                        );
+                                    } else {
+                                        Alert.alert(
+                                            "No Voices Found",
+                                            "Your device doesn't have any text-to-speech voices installed, or they're not accessible to the app. The default system voice will be used."
+                                        );
+                                    }
+                                } catch (error) {
+                                    console.error(
+                                        "Error refreshing voices:",
+                                        error
+                                    );
+                                    Alert.alert(
+                                        "Error",
+                                        "Failed to refresh voice list."
+                                    );
+                                } finally {
+                                    setIsLoading(false);
+                                }
+                            }}
+                        >
+                            <Ionicons
+                                name="refresh"
+                                size={18}
+                                color={COLORS.background}
+                            />
+                            <Text style={styles.refreshVoicesButtonText}>
+                                Refresh Voice List
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 ) : (
                     sortedLanguages.map((language) => (
                         <View key={language} style={styles.languageSection}>
@@ -815,12 +863,40 @@ const styles = StyleSheet.create({
     voiceButtonTextSelected: {
         color: COLORS.background,
     },
+    noVoicesContainer: {
+        alignItems: "center",
+        padding: SPACING.md,
+        backgroundColor: COLORS.background,
+        borderRadius: 8,
+        marginTop: SPACING.md,
+    },
     noVoicesText: {
         fontSize: FONT_SIZES.md,
         color: COLORS.textSecondary,
-        fontStyle: "italic",
+        fontWeight: "500",
         textAlign: "center",
-        marginTop: SPACING.md,
+        marginBottom: SPACING.sm,
+    },
+    noVoicesSubtext: {
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.textSecondary,
+        textAlign: "center",
+        marginBottom: SPACING.md,
+    },
+    refreshVoicesButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: COLORS.primary,
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.md,
+        borderRadius: 20,
+        marginTop: SPACING.sm,
+    },
+    refreshVoicesButtonText: {
+        color: COLORS.background,
+        fontSize: FONT_SIZES.sm,
+        fontWeight: "500",
+        marginLeft: SPACING.xs,
     },
     testButton: {
         backgroundColor: COLORS.primary,

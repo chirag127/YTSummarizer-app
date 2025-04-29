@@ -1,5 +1,6 @@
 import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 // Constants for TTS settings
 const TTS_SETTINGS_KEY = "tts_settings";
@@ -60,7 +61,74 @@ export const saveTTSSettings = async (settings) => {
 export const getAvailableVoices = async () => {
     try {
         const voices = await Speech.getAvailableVoicesAsync();
-        return voices;
+
+        // Log the number of voices found for debugging
+        console.log(`Found ${voices.length} TTS voices on device`);
+
+        // If we have voices, return them
+        if (voices && voices.length > 0) {
+            return voices;
+        }
+
+        // If we're on web, try to use the browser's SpeechSynthesis API directly
+        if (Platform.OS === "web" && window.speechSynthesis) {
+            try {
+                // Get voices from the browser's SpeechSynthesis API
+                let webVoices = window.speechSynthesis.getVoices();
+
+                // If no voices are returned immediately, wait for the voiceschanged event
+                if (!webVoices || webVoices.length === 0) {
+                    console.log(
+                        "No voices available immediately, waiting for voiceschanged event"
+                    );
+
+                    // Wait for voices to be loaded (this happens asynchronously in some browsers)
+                    await new Promise((resolve) => {
+                        const voicesChangedHandler = () => {
+                            window.speechSynthesis.removeEventListener(
+                                "voiceschanged",
+                                voicesChangedHandler
+                            );
+                            resolve();
+                        };
+
+                        window.speechSynthesis.addEventListener(
+                            "voiceschanged",
+                            voicesChangedHandler
+                        );
+
+                        // Set a timeout in case the event never fires
+                        setTimeout(() => {
+                            window.speechSynthesis.removeEventListener(
+                                "voiceschanged",
+                                voicesChangedHandler
+                            );
+                            resolve();
+                        }, 1000);
+                    });
+
+                    // Try to get voices again after the event
+                    webVoices = window.speechSynthesis.getVoices();
+                }
+
+                // Convert web voices to the format expected by the app
+                if (webVoices && webVoices.length > 0) {
+                    console.log(`Found ${webVoices.length} web voices`);
+
+                    return webVoices.map((voice) => ({
+                        identifier: voice.voiceURI,
+                        name: voice.name,
+                        quality: 300,
+                        language: voice.lang,
+                    }));
+                }
+            } catch (webError) {
+                console.error("Error getting web voices:", webError);
+            }
+        }
+
+        // Return empty array if no voices are found
+        return [];
     } catch (error) {
         console.error("Error getting available voices:", error);
         return [];
@@ -204,11 +272,10 @@ const speakChunk = async (
             }
         }
 
-        // Speak with settings
-        await Speech.speak(speakingText, {
+        // Prepare speech options
+        const speechOptions = {
             rate: settings.rate,
             pitch: settings.pitch,
-            voice: settings.voice,
             onStart: () => {
                 console.log("Started speaking chunk");
                 if (onStartCallback && currentChunkIndex === 0) {
@@ -341,7 +408,16 @@ const speakChunk = async (
                     }
                 }
             },
-        });
+        };
+
+        // Only add the voice option if a voice is selected
+        // This ensures the system default voice is used when no voice is selected
+        if (settings.voice) {
+            speechOptions.voice = settings.voice;
+        }
+
+        // Speak with settings
+        await Speech.speak(speakingText, speechOptions);
 
         return true;
     } catch (error) {
