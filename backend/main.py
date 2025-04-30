@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import logging
 from bson import ObjectId
 import random
+import cache  # Import our new cache module
 
 # Load environment variables
 load_dotenv()
@@ -51,20 +52,28 @@ client = None
 async def startup_db_client():
     global client
     try:
+        # Connect to MongoDB
         client = AsyncIOMotorClient(MONGODB_URI)
         # Ping the database to check connection
         await client.admin.command('ping')
         logger.info("Connected to MongoDB")
+
+        # Initialize Redis cache
+        await cache.init_redis()
     except Exception as e:
-        logger.error(f"Failed to connect to MongoDB: {e}")
+        logger.error(f"Failed to connect to MongoDB or Redis: {e}")
         raise
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     global client
+    # Close MongoDB connection
     if client:
         client.close()
         logger.info("MongoDB connection closed")
+
+    # Close Redis connection
+    await cache.close_redis()
 
 # Helper function to get database
 def get_database():
@@ -158,11 +167,59 @@ def extract_video_id(url: str) -> str:
     return None
 
 async def extract_video_info(url: str) -> Dict[str, Any]:
-    """Extract video information using yt-dlp."""
+    """Extract video information using yt-dlp with caching."""
 
+    # Extract video ID from URL
+    video_id = extract_video_id(url)
+    if not video_id:
+        logger.error(f"Could not extract video ID from URL: {url}")
+        return {
+            'title': 'Title Unavailable',
+            'thumbnail': None,
+            'transcript': None,
+            'error': "Could not extract video ID from URL"
+        }
+
+    # Check if video info is cached
+    cached_video_info = await cache.get_cached_video_info(video_id)
+    if cached_video_info:
+        logger.info(f"Using cached video info for video ID: {video_id}")
+        return cached_video_info
+
+    # Check if transcript is cached
+    cached_transcript = await cache.get_cached_transcript(video_id)
+    if cached_transcript:
+        logger.info(f"Using cached transcript for video ID: {video_id}")
+
+        # We still need to fetch basic video info if not in cache
+        try:
+            with yt_dlp.YoutubeDL({'skip_download': True}) as ydl:
+                info = ydl.extract_info(url, download=False)
+                video_info = {
+                    'title': info.get('title', 'Title Unavailable'),
+                    'thumbnail': info.get('thumbnail', None),
+                    'transcript': cached_transcript.get('transcript'),
+                    'transcript_language': cached_transcript.get('language'),
+                    'video_id': video_id
+                }
+
+                # Cache the combined video info
+                await cache.cache_video_info(video_id, video_info)
+                return video_info
+        except Exception as e:
+            logger.error(f"Error fetching basic video info: {e}")
+            # If we can't fetch basic info, at least return the transcript
+            return {
+                'title': 'Title Unavailable',
+                'thumbnail': None,
+                'transcript': cached_transcript.get('transcript'),
+                'transcript_language': cached_transcript.get('language'),
+                'video_id': video_id
+            }
+
+    # If not cached, proceed with full extraction
     current_dir = os.getcwd()
     logger.info(f"Current working directory: {current_dir}")
-
 
     cookies_file = os.path.join(current_dir, 'cookies.txt')
     logger.info(f"Using cookies file: {cookies_file}")
@@ -221,14 +278,13 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            # print(info)
             # Extract relevant information
             video_info = {
                 'title': info.get('title', 'Title Unavailable'),
                 'thumbnail': info.get('thumbnail', None),
                 'transcript': None,
                 'transcript_language': None,
-                'video_id': info.get('id', extract_video_id(url))
+                'video_id': video_id
             }
 
             # Try to get transcript/subtitles
@@ -441,6 +497,12 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
                 video_info['transcript'] = transcript_text.strip()
                 video_info['transcript_language'] = transcript_lang
 
+                # Cache the transcript separately
+                await cache.cache_transcript(video_id, {
+                    'transcript': transcript_text.strip(),
+                    'language': transcript_lang
+                })
+
             # If we still don't have a transcript, try a simulated transcript with video description
             if not video_info.get('transcript') and info.get('description'):
                 description = info.get('description', '')
@@ -448,6 +510,24 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
                     video_info['transcript'] = f"Video Description: {description}"
                     video_info['transcript_language'] = info.get('language') or 'unknown'
                     video_info['is_description_only'] = True
+
+                    # Cache the description as transcript
+                    await cache.cache_transcript(video_id, {
+                        'transcript': f"Video Description: {description}",
+                        'language': info.get('language') or 'unknown'
+                    })
+
+            # Cache the full video info
+            if video_info.get('transcript'):
+                await cache.cache_video_info(video_id, video_info)
+
+                # Also cache available languages if we have them
+                if info.get('subtitles') or info.get('automatic_captions'):
+                    languages = {
+                        'subtitles': list(info.get('subtitles', {}).keys()),
+                        'automatic_captions': list(info.get('automatic_captions', {}).keys())
+                    }
+                    await cache.cache_available_languages(video_id, languages)
 
             return video_info
     except Exception as e:
@@ -879,6 +959,65 @@ async def get_video_summaries(video_url: str, db=Depends(get_database)):
     except Exception as e:
         logger.error(f"Error retrieving video summaries: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving video summaries: {str(e)}")
+
+# Cache management endpoints
+@app.delete("/cache", response_model=Dict[str, Any])
+async def clear_all_cache():
+    """Clear all cached data."""
+    try:
+        result = await cache.clear_cache()
+        if result:
+            return {"message": "Cache cleared successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to clear cache")
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
+        raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
+
+@app.delete("/cache/video/{video_id}", response_model=Dict[str, Any])
+async def clear_video_cache(video_id: str):
+    """Clear cached data for a specific video."""
+    try:
+        # Delete video info cache
+        await cache.delete_cache(f"video_info:{video_id}")
+
+        # Delete transcript cache
+        await cache.delete_cache(f"transcript:{video_id}")
+
+        # Delete languages cache
+        await cache.delete_cache(f"languages:{video_id}")
+
+        return {"message": f"Cache for video {video_id} cleared successfully"}
+    except Exception as e:
+        logger.error(f"Error clearing cache for video {video_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
+
+@app.get("/cache/status", response_model=Dict[str, Any])
+async def get_cache_status():
+    """Get cache status information."""
+    try:
+        # Use our new cache stats function
+        stats = await cache.get_cache_stats()
+
+        # Get additional Redis info if connected
+        if stats.get("status") == "Connected" and cache.redis:
+            info = await cache.redis.info()
+
+            # Add more detailed metrics
+            stats.update({
+                "connected_clients": info.get("connected_clients", "Unknown"),
+                "uptime_in_seconds": info.get("uptime_in_seconds", "Unknown"),
+                "uptime_in_days": info.get("uptime_in_days", "Unknown"),
+                "total_commands_processed": info.get("total_commands_processed", "Unknown"),
+                "evicted_keys": info.get("evicted_keys", "Unknown"),
+                "lru_cleanup_threshold": f"{cache.MAX_MEMORY_PERCENT}%",
+                "max_keys_limit": cache.MAX_CACHE_KEYS,
+            })
+
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting cache status: {e}")
+        return {"status": f"Error: {str(e)}"}
 
 if __name__ == "__main__":
     import uvicorn
