@@ -10,6 +10,7 @@ import {
     Alert,
     RefreshControl,
     Switch,
+    TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -20,7 +21,7 @@ import {
     deleteSummary,
     toggleStarSummary,
 } from "../services/api";
-import { formatDate, truncateText } from "../utils";
+import { formatDate } from "../utils";
 import { COLORS, SPACING, FONT_SIZES, SCREENS, SHADOWS } from "../constants";
 
 const HistoryScreen = ({ navigation }) => {
@@ -31,6 +32,7 @@ const HistoryScreen = ({ navigation }) => {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [error, setError] = useState(null);
     const [showStarredOnly, setShowStarredOnly] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 100,
@@ -109,6 +111,8 @@ const HistoryScreen = ({ navigation }) => {
     const handleRefresh = () => {
         // Reset to page 1 when refreshing
         setPagination((prev) => ({ ...prev, page: 1 }));
+        // Clear search query when refreshing
+        setSearchQuery("");
         fetchSummaries(true, 1);
     };
 
@@ -163,10 +167,8 @@ const HistoryScreen = ({ navigation }) => {
     const handleToggleStar = async (id, currentStarred) => {
         try {
             const newStarredStatus = !currentStarred;
-            const updatedSummary = await toggleStarSummary(
-                id,
-                newStarredStatus
-            );
+            // Call API to toggle star status
+            await toggleStarSummary(id, newStarredStatus);
 
             // Update the summaries state with the updated summary
             setSummaries((prevSummaries) =>
@@ -185,10 +187,26 @@ const HistoryScreen = ({ navigation }) => {
         }
     };
 
-    // Filtered summaries based on star filter
-    const filteredSummaries = showStarredOnly
-        ? summaries.filter((summary) => summary.is_starred)
-        : summaries;
+    // Filter summaries based on search query and star filter
+    const filteredSummaries = summaries.filter((summary) => {
+        // Apply star filter
+        if (showStarredOnly && !summary.is_starred) {
+            return false;
+        }
+
+        // Apply search filter if there's a query
+        if (searchQuery.trim() !== "") {
+            const query = searchQuery.toLowerCase();
+            return (
+                (summary.video_title &&
+                    summary.video_title.toLowerCase().includes(query)) ||
+                (summary.summary_text &&
+                    summary.summary_text.toLowerCase().includes(query))
+            );
+        }
+
+        return true;
+    });
 
     // Render footer component (load more indicator)
     const renderFooter = () => {
@@ -313,6 +331,33 @@ const HistoryScreen = ({ navigation }) => {
             );
         }
 
+        // If we have summaries but none match the search query
+        if (
+            summaries.length > 0 &&
+            filteredSummaries.length === 0 &&
+            searchQuery.trim() !== ""
+        ) {
+            return (
+                <View style={styles.emptyContainer}>
+                    <Ionicons
+                        name="search-outline"
+                        size={48}
+                        color={COLORS.textSecondary}
+                    />
+                    <Text style={styles.emptyText}>No matching summaries</Text>
+                    <Text style={styles.emptySubtext}>
+                        No summaries match your search query
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={handleClearSearch}
+                    >
+                        <Text style={styles.retryButtonText}>Clear Search</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
         return (
             <View style={styles.emptyContainer}>
                 <Ionicons
@@ -349,6 +394,16 @@ const HistoryScreen = ({ navigation }) => {
         );
     };
 
+    // Handle search input change
+    const handleSearchChange = (text) => {
+        setSearchQuery(text);
+    };
+
+    // Clear search
+    const handleClearSearch = () => {
+        setSearchQuery("");
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.filterContainer}>
@@ -363,6 +418,38 @@ const HistoryScreen = ({ navigation }) => {
                     thumbColor={COLORS.background}
                 />
             </View>
+
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+                <View style={styles.searchInputContainer}>
+                    <Ionicons
+                        name="search"
+                        size={20}
+                        color={COLORS.textSecondary}
+                        style={styles.searchIcon}
+                    />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search summaries..."
+                        placeholderTextColor={COLORS.textSecondary}
+                        value={searchQuery}
+                        onChangeText={handleSearchChange}
+                    />
+                    {searchQuery.length > 0 && (
+                        <TouchableOpacity
+                            onPress={handleClearSearch}
+                            style={styles.clearButton}
+                        >
+                            <Ionicons
+                                name="close-circle"
+                                size={20}
+                                color={COLORS.textSecondary}
+                            />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+
             <FlatList
                 data={filteredSummaries}
                 renderItem={renderSummaryItem}
@@ -470,6 +557,35 @@ const styles = StyleSheet.create({
         fontSize: FONT_SIZES.md,
         color: COLORS.text,
         fontWeight: "500",
+    },
+    // Search styles
+    searchContainer: {
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.sm,
+        backgroundColor: COLORS.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    searchInputContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: COLORS.background,
+        borderRadius: 8,
+        paddingHorizontal: SPACING.sm,
+        height: 40,
+        ...SHADOWS.tiny,
+    },
+    searchIcon: {
+        marginRight: SPACING.xs,
+    },
+    searchInput: {
+        flex: 1,
+        height: 40,
+        color: COLORS.text,
+        fontSize: FONT_SIZES.md,
+    },
+    clearButton: {
+        padding: SPACING.xs,
     },
     emptyContainer: {
         flex: 1,
