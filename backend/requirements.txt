@@ -7,5 +7,4 @@ yt-dlp
 python-multipart
 requests
 google-genai
-redis
-aioredis
+redis>=4.2.0

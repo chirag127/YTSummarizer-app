@@ -1000,8 +1000,8 @@ async def get_cache_status():
         stats = await cache.get_cache_stats()
 
         # Get additional Redis info if connected
-        if stats.get("status") == "Connected" and cache.redis:
-            info = await cache.redis.info()
+        if stats.get("status") == "Connected" and cache.redis_client:
+            info = await cache.redis_client.info()
 
             # Add more detailed metrics
             stats.update({
