@@ -256,6 +256,7 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
         'verbose': True,
                 #  'proxy': get_random_proxy(),
                 #  'proxy': 'http://177.234.247.234:999/',
+                # 'proxy': 'http://102.209.148.2:8080',
                 #  'proxy': os.getenv("PROXY_URL"),
         #  'proxy': "http://"+ get_random_user_password() + "@" + get_random_ip_port(),
         "proxy": "http://" + get_random_user_password_rotate() + "@" + "p.webshare.io:80",
