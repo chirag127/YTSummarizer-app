@@ -1,5 +1,11 @@
 import axios from "axios";
 import { getApiKey } from "./apiKeyService";
+import NetInfo from "@react-native-community/netinfo";
+import * as storageService from "./storageService";
+import * as queueService from "./queueService";
+import * as syncService from "./syncService";
+import * as cacheService from "./cacheService";
+import { extractVideoId } from "../utils";
 
 // Base URL for API calls - change this to your backend URL
 const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
@@ -57,6 +63,35 @@ export const generateSummary = async (
     summaryLength,
     signal
 ) => {
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
+
+    // If offline, add to queue
+    if (!isNetworkAvailable) {
+        const queueItem = await queueService.addToQueue({
+            url,
+            type: summaryType,
+            length: summaryLength,
+        });
+
+        // Return a placeholder summary
+        return {
+            id: queueItem.requestId,
+            video_url: url,
+            video_title: "Pending Summary (Offline)",
+            video_thumbnail_url: null,
+            summary_text:
+                "This summary will be generated when you're back online.",
+            summary_type: summaryType,
+            summary_length: summaryLength,
+            created_at: new Date().toISOString(),
+            is_queued: true,
+            queue_status: "pending",
+        };
+    }
+
     try {
         const response = await api.post(
             "/generate-summary",
@@ -68,7 +103,28 @@ export const generateSummary = async (
             { signal }
         ); // Pass the abort signal to axios
 
-        return response.data;
+        const summary = response.data;
+
+        // Cache the summary locally
+        await storageService.saveSummary(summary);
+
+        // Cache the thumbnail if available
+        if (summary.video_thumbnail_url) {
+            const videoId = extractVideoId(summary.video_url);
+            const cachedImageUri = await cacheService.cacheImage(
+                summary.video_thumbnail_url,
+                videoId
+            );
+
+            if (cachedImageUri) {
+                // Update the summary with the local thumbnail URI
+                await storageService.updateSummary(videoId, summary.id, {
+                    thumbnailLocalUri: cachedImageUri,
+                });
+            }
+        }
+
+        return summary;
     } catch (error) {
         console.error("Error generating summary:", error);
 
@@ -81,18 +137,27 @@ export const generateSummary = async (
         // If there's a network error, try to continue with a fallback
         if (error.message === "Network Error") {
             console.log("Network error detected, using fallback method");
+
+            // Add to queue for later processing
+            const queueItem = await queueService.addToQueue({
+                url,
+                type: summaryType,
+                length: summaryLength,
+            });
+
             // Create a mock summary response as fallback
             return {
-                id: "fallback-" + Date.now(),
+                id: queueItem.requestId,
                 video_url: url,
-                video_title: "Video Title (Fallback)",
-                video_thumbnail_url:
-                    "https://via.placeholder.com/480x360?text=Network+Error",
+                video_title: "Pending Summary (Network Error)",
+                video_thumbnail_url: null,
                 summary_text:
-                    "Unable to generate summary due to network error. Please try again later.",
+                    "Unable to generate summary due to network error. The request has been queued and will be processed when the connection is restored.",
                 summary_type: summaryType,
                 summary_length: summaryLength,
                 created_at: new Date().toISOString(),
+                is_queued: true,
+                queue_status: "pending",
             };
         } else {
             throw error;
@@ -101,67 +166,236 @@ export const generateSummary = async (
 };
 
 export const getAllSummaries = async (page = 1, limit = 100) => {
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
+
     try {
-        const response = await api.get("/summaries", {
-            params: { page, limit },
-        });
-        return response.data;
+        if (isNetworkAvailable) {
+            // Try to fetch from API first
+            const response = await api.get("/summaries", {
+                params: { page, limit },
+            });
+
+            // Cache the summaries locally
+            for (const summary of response.data.summaries) {
+                await storageService.saveSummary(summary);
+
+                // Cache thumbnails
+                if (summary.video_thumbnail_url) {
+                    const videoId = extractVideoId(summary.video_url);
+                    await cacheService.cacheImage(
+                        summary.video_thumbnail_url,
+                        videoId
+                    );
+                }
+            }
+
+            return response.data;
+        } else {
+            // Offline mode - use local storage
+            const localSummaries = await storageService.getAllSummaries();
+
+            // Get queue items
+            const queue = await queueService.getQueue();
+
+            // Combine summaries and queue items
+            const combinedResults = [
+                ...localSummaries,
+                ...queue.map((item) => ({
+                    id: item.requestId,
+                    video_url: item.url,
+                    video_title: "Pending Summary (Offline)",
+                    video_thumbnail_url: null,
+                    summary_text:
+                        "This summary will be generated when you're back online.",
+                    summary_type: item.type,
+                    summary_length: item.length,
+                    created_at: new Date(item.requestedTimestamp).toISOString(),
+                    is_queued: true,
+                    queue_status: item.status,
+                    failureReason: item.failureReason,
+                })),
+            ];
+
+            // Sort by creation date (newest first)
+            combinedResults.sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+            );
+
+            // Apply pagination
+            const startIndex = (page - 1) * limit;
+            const endIndex = startIndex + limit;
+            const paginatedResults = combinedResults.slice(
+                startIndex,
+                endIndex
+            );
+
+            return {
+                summaries: paginatedResults,
+                pagination: {
+                    page,
+                    limit,
+                    total_count: combinedResults.length,
+                    total_pages: Math.ceil(combinedResults.length / limit),
+                    has_next: endIndex < combinedResults.length,
+                    has_prev: page > 1,
+                },
+            };
+        }
     } catch (error) {
         console.error("Error fetching summaries:", error);
 
-        // If there's a network error, return mock data
-        if (error.message === "Network Error") {
-            console.log("Network error detected, returning mock summaries");
-            // Return empty array with pagination metadata as fallback
-            return {
-                summaries: [],
-                pagination: {
-                    page: page,
-                    limit: limit,
-                    total_count: 0,
-                    total_pages: 0,
-                    has_next: false,
-                    has_prev: false,
-                },
-            };
+        // Fallback to local storage
+        const localSummaries = await storageService.getAllSummaries();
 
-            // Uncomment below to return mock data instead of empty array
-            /*
-            return {
-                summaries: [
-                    {
-                        id: "mock-1",
-                        video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                        video_title: "Sample Video (Offline Mode)",
-                        video_thumbnail_url: "https://via.placeholder.com/480x360?text=Offline+Mode",
-                        summary_text: "This is a sample summary shown when you're offline. Connect to the internet to see your actual summaries.",
-                        summary_type: "Brief",
-                        summary_length: "Medium",
-                        created_at: new Date().toISOString(),
-                    }
-                ],
-                pagination: {
-                    page: page,
-                    limit: limit,
-                    total_count: 1,
-                    total_pages: 1,
-                    has_next: false,
-                    has_prev: false
-                }
-            };
-            */
-        }
+        // Get queue items
+        const queue = await queueService.getQueue();
 
-        throw error;
+        // Combine summaries and queue items
+        const combinedResults = [
+            ...localSummaries,
+            ...queue.map((item) => ({
+                id: item.requestId,
+                video_url: item.url,
+                video_title: "Pending Summary (Offline)",
+                video_thumbnail_url: null,
+                summary_text:
+                    "This summary will be generated when you're back online.",
+                summary_type: item.type,
+                summary_length: item.length,
+                created_at: new Date(item.requestedTimestamp).toISOString(),
+                is_queued: true,
+                queue_status: item.status,
+                failureReason: item.failureReason,
+            })),
+        ];
+
+        // Sort by creation date (newest first)
+        combinedResults.sort(
+            (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
+
+        // Apply pagination
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedResults = combinedResults.slice(startIndex, endIndex);
+
+        return {
+            summaries: paginatedResults,
+            pagination: {
+                page,
+                limit,
+                total_count: combinedResults.length,
+                total_pages: Math.ceil(combinedResults.length / limit),
+                has_next: endIndex < combinedResults.length,
+                has_prev: page > 1,
+            },
+        };
     }
 };
 
 export const getSummaryById = async (id) => {
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
+
     try {
-        const response = await api.get(`/summaries/${id}`);
-        return response.data;
+        if (isNetworkAvailable) {
+            // Try to fetch from API first
+            const response = await api.get(`/summaries/${id}`);
+
+            // Cache the summary locally
+            await storageService.saveSummary(response.data);
+
+            // Cache the thumbnail if available
+            if (response.data.video_thumbnail_url) {
+                const videoId = extractVideoId(response.data.video_url);
+                const cachedImageUri = await cacheService.cacheImage(
+                    response.data.video_thumbnail_url,
+                    videoId
+                );
+
+                if (cachedImageUri) {
+                    // Update the summary with the local thumbnail URI
+                    await storageService.updateSummary(
+                        videoId,
+                        response.data.id,
+                        { thumbnailLocalUri: cachedImageUri }
+                    );
+                }
+            }
+
+            return response.data;
+        } else {
+            // Offline mode - check local storage
+            const localSummaries = await storageService.getAllSummaries();
+            const summary = localSummaries.find((s) => s.id === id);
+
+            if (summary) {
+                return summary;
+            }
+
+            // Check if it's a queued item
+            const queue = await queueService.getQueue();
+            const queueItem = queue.find((item) => item.requestId === id);
+
+            if (queueItem) {
+                return {
+                    id: queueItem.requestId,
+                    video_url: queueItem.url,
+                    video_title: "Pending Summary (Offline)",
+                    video_thumbnail_url: null,
+                    summary_text:
+                        "This summary will be generated when you're back online.",
+                    summary_type: queueItem.type,
+                    summary_length: queueItem.length,
+                    created_at: new Date(
+                        queueItem.requestedTimestamp
+                    ).toISOString(),
+                    is_queued: true,
+                    queue_status: queueItem.status,
+                    failureReason: queueItem.failureReason,
+                };
+            }
+
+            throw new Error("Summary not found in local storage");
+        }
     } catch (error) {
         console.error(`Error fetching summary with ID ${id}:`, error);
+
+        // Check local storage as fallback
+        const localSummaries = await storageService.getAllSummaries();
+        const summary = localSummaries.find((s) => s.id === id);
+
+        if (summary) {
+            return summary;
+        }
+
+        // Check if it's a queued item
+        const queue = await queueService.getQueue();
+        const queueItem = queue.find((item) => item.requestId === id);
+
+        if (queueItem) {
+            return {
+                id: queueItem.requestId,
+                video_url: queueItem.url,
+                video_title: "Pending Summary (Offline)",
+                video_thumbnail_url: null,
+                summary_text:
+                    "This summary will be generated when you're back online.",
+                summary_type: queueItem.type,
+                summary_length: queueItem.length,
+                created_at: new Date(
+                    queueItem.requestedTimestamp
+                ).toISOString(),
+                is_queued: true,
+                queue_status: queueItem.status,
+                failureReason: queueItem.failureReason,
+            };
+        }
 
         // If there's a network error, return mock data for the specific ID
         if (error.message === "Network Error") {
@@ -188,24 +422,81 @@ export const getSummaryById = async (id) => {
 };
 
 export const updateSummary = async (id, summaryType, summaryLength) => {
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
+
     try {
-        const response = await api.put(`/summaries/${id}`, {
-            summary_type: summaryType,
-            summary_length: summaryLength,
-        });
-        return response.data;
+        if (isNetworkAvailable) {
+            // Try to update via API first
+            const response = await api.put(`/summaries/${id}`, {
+                summary_type: summaryType,
+                summary_length: summaryLength,
+            });
+
+            // Cache the updated summary locally
+            await storageService.saveSummary(response.data);
+
+            return response.data;
+        } else {
+            // Offline mode - add to queue
+            const summary = await getSummaryById(id);
+
+            const queueItem = await queueService.addToQueue({
+                url: summary.video_url,
+                type: summaryType,
+                length: summaryLength,
+            });
+
+            return {
+                id: queueItem.requestId,
+                video_url: summary.video_url,
+                video_title: `${summary.video_title} (Update Queued)`,
+                video_thumbnail_url: summary.video_thumbnail_url,
+                summary_text:
+                    "This summary update will be generated when you're back online.",
+                summary_type: summaryType,
+                summary_length: summaryLength,
+                created_at: new Date().toISOString(),
+                is_queued: true,
+                queue_status: "pending",
+            };
+        }
     } catch (error) {
         console.error(`Error updating summary with ID ${id}:`, error);
 
-        // If there's a network error, return a mock updated summary
+        // If there's a network error, add to queue
         if (error.message === "Network Error") {
-            console.log(
-                `Network error detected, returning mock updated summary for ID ${id}`
-            );
-            // First try to get the existing summary details
             try {
-                // Try to get the current summary from local state if possible
-                // For now, return a mock updated summary
+                const summary = await getSummaryById(id);
+
+                const queueItem = await queueService.addToQueue({
+                    url: summary.video_url,
+                    type: summaryType,
+                    length: summaryLength,
+                });
+
+                return {
+                    id: queueItem.requestId,
+                    video_url: summary.video_url,
+                    video_title: `${summary.video_title} (Update Queued)`,
+                    video_thumbnail_url: summary.video_thumbnail_url,
+                    summary_text:
+                        "This summary update will be generated when you're back online.",
+                    summary_type: summaryType,
+                    summary_length: summaryLength,
+                    created_at: new Date().toISOString(),
+                    is_queued: true,
+                    queue_status: "pending",
+                };
+            } catch (innerError) {
+                console.error(
+                    "Error creating queued update summary:",
+                    innerError
+                );
+
+                // Return a mock updated summary as last resort
                 return {
                     id: id,
                     video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -219,12 +510,6 @@ export const updateSummary = async (id, summaryType, summaryLength) => {
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                 };
-            } catch (innerError) {
-                console.error(
-                    "Error creating mock updated summary:",
-                    innerError
-                );
-                throw error; // Throw the original error
             }
         }
 
@@ -233,29 +518,59 @@ export const updateSummary = async (id, summaryType, summaryLength) => {
 };
 
 export const toggleStarSummary = async (id, isStarred) => {
-    try {
-        const response = await api.patch(`/summaries/${id}/star`, {
-            is_starred: isStarred,
-        });
-        return response.data;
-    } catch (error) {
-        console.error(
-            `Error toggling star status for summary with ID ${id}:`,
-            error
-        );
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
 
-        // If there's a network error, return a mock updated summary
-        if (error.message === "Network Error") {
-            console.log(
-                `Network error detected, returning mock updated star status for ID ${id}`
-            );
-            // Try to get the current summary from local state if possible
-            try {
-                // For now, return a mock updated summary
+    try {
+        // Get the summary details first
+        const summaryResult = await storageService.getSummaryBySummaryId(id);
+
+        // Update local storage first if we have the summary
+        if (summaryResult) {
+            const { videoData } = summaryResult;
+            await storageService.updateSummary(videoData.videoId, id, {
+                is_starred: isStarred,
+            });
+        }
+
+        if (isNetworkAvailable) {
+            // Try to update via API
+            const response = await api.patch(`/summaries/${id}/star`, {
+                is_starred: isStarred,
+            });
+
+            return response.data;
+        } else {
+            // Offline mode - add to sync log
+            if (summaryResult) {
+                await syncService.addToSyncLog(
+                    isStarred ? "star" : "unstar",
+                    summaryResult.videoData.videoId,
+                    id
+                );
+
+                // Return the locally updated summary
                 return {
                     id: id,
                     is_starred: isStarred,
-                    // Include other required fields with placeholder values
+                    video_url: summaryResult.videoData.url,
+                    video_title: summaryResult.videoData.title,
+                    video_thumbnail_url: summaryResult.videoData.thumbnailUrl,
+                    thumbnailLocalUri:
+                        summaryResult.videoData.thumbnailLocalUri,
+                    summary_text: summaryResult.summaryData.text,
+                    summary_type: summaryResult.summaryData.type,
+                    summary_length: summaryResult.summaryData.length,
+                    created_at: summaryResult.summaryData.generatedAt,
+                    updated_at: new Date().toISOString(),
+                };
+            } else {
+                // We don't have the summary locally, return a mock
+                return {
+                    id: id,
+                    is_starred: isStarred,
                     video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
                     video_title: "Summary (Offline Mode)",
                     video_thumbnail_url:
@@ -267,10 +582,74 @@ export const toggleStarSummary = async (id, isStarred) => {
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                 };
-            } catch (innerError) {
-                console.error("Error creating mock star update:", innerError);
-                throw error; // Throw the original error
             }
+        }
+    } catch (error) {
+        console.error(
+            `Error toggling star status for summary with ID ${id}:`,
+            error
+        );
+
+        // If there's a network error, add to sync log
+        if (error.message === "Network Error") {
+            try {
+                const summaryResult =
+                    await storageService.getSummaryBySummaryId(id);
+
+                if (summaryResult) {
+                    // Update local storage
+                    await storageService.updateSummary(
+                        summaryResult.videoData.videoId,
+                        id,
+                        { is_starred: isStarred }
+                    );
+
+                    // Add to sync log
+                    await syncService.addToSyncLog(
+                        isStarred ? "star" : "unstar",
+                        summaryResult.videoData.videoId,
+                        id
+                    );
+
+                    // Return the locally updated summary
+                    return {
+                        id: id,
+                        is_starred: isStarred,
+                        video_url: summaryResult.videoData.url,
+                        video_title: summaryResult.videoData.title,
+                        video_thumbnail_url:
+                            summaryResult.videoData.thumbnailUrl,
+                        thumbnailLocalUri:
+                            summaryResult.videoData.thumbnailLocalUri,
+                        summary_text: summaryResult.summaryData.text,
+                        summary_type: summaryResult.summaryData.type,
+                        summary_length: summaryResult.summaryData.length,
+                        created_at: summaryResult.summaryData.generatedAt,
+                        updated_at: new Date().toISOString(),
+                    };
+                }
+            } catch (innerError) {
+                console.error(
+                    "Error handling offline star update:",
+                    innerError
+                );
+            }
+
+            // Return a mock updated summary as fallback
+            return {
+                id: id,
+                is_starred: isStarred,
+                video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                video_title: "Summary (Offline Mode)",
+                video_thumbnail_url:
+                    "https://via.placeholder.com/480x360?text=Offline+Mode",
+                summary_text:
+                    "This summary's star status was updated in offline mode. Changes may not be saved to the server.",
+                summary_type: "Brief",
+                summary_length: "Medium",
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
         }
 
         throw error;
@@ -278,17 +657,65 @@ export const toggleStarSummary = async (id, isStarred) => {
 };
 
 export const deleteSummary = async (id) => {
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
+
     try {
-        const response = await api.delete(`/summaries/${id}`);
-        return response.data;
+        // Get the summary details first
+        const summaryResult = await storageService.getSummaryBySummaryId(id);
+
+        // Delete from local storage first if we have the summary
+        if (summaryResult) {
+            const { videoData } = summaryResult;
+            await storageService.deleteSummary(videoData.videoId, id);
+        }
+
+        if (isNetworkAvailable) {
+            // Try to delete via API
+            const response = await api.delete(`/summaries/${id}`);
+            return response.data;
+        } else {
+            // Offline mode - add to sync log
+            if (summaryResult) {
+                await syncService.addToSyncLog(
+                    "delete",
+                    summaryResult.videoData.videoId,
+                    id
+                );
+            }
+
+            // Return a success response
+            return { success: true, message: "Summary deleted (offline mode)" };
+        }
     } catch (error) {
         console.error(`Error deleting summary with ID ${id}:`, error);
 
-        // If there's a network error, pretend the deletion was successful
+        // If there's a network error, add to sync log
         if (error.message === "Network Error") {
-            console.log(
-                `Network error detected, simulating successful deletion for ID ${id}`
-            );
+            try {
+                const summaryResult =
+                    await storageService.getSummaryBySummaryId(id);
+
+                if (summaryResult) {
+                    // Delete from local storage
+                    await storageService.deleteSummary(
+                        summaryResult.videoData.videoId,
+                        id
+                    );
+
+                    // Add to sync log
+                    await syncService.addToSyncLog(
+                        "delete",
+                        summaryResult.videoData.videoId,
+                        id
+                    );
+                }
+            } catch (innerError) {
+                console.error("Error handling offline deletion:", innerError);
+            }
+
             // Return a success response
             return { success: true, message: "Summary deleted (offline mode)" };
         }
@@ -299,30 +726,200 @@ export const deleteSummary = async (id) => {
 
 // Get all summaries for a specific video URL
 export const getVideoSummaries = async (videoUrl) => {
-    try {
-        const response = await api.get("/video-summaries", {
-            params: { video_url: videoUrl },
-        });
-        return response.data;
-    } catch (error) {
-        console.error(
-            `Error fetching summaries for video URL ${videoUrl}:`,
-            error
-        );
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
 
-        // If there's a network error, return mock data
-        if (error.message === "Network Error") {
-            console.log(
-                "Network error detected, returning mock video summaries"
-            );
+    try {
+        if (isNetworkAvailable) {
+            // Try to fetch from API first
+            const response = await api.get("/video-summaries", {
+                params: { video_url: videoUrl },
+            });
+
+            // Cache the summaries locally
+            for (const summary of response.data.summaries) {
+                await storageService.saveSummary(summary);
+
+                // Cache thumbnails
+                if (summary.video_thumbnail_url) {
+                    const videoId = extractVideoId(summary.video_url);
+                    await cacheService.cacheImage(
+                        summary.video_thumbnail_url,
+                        videoId
+                    );
+                }
+            }
+
+            return response.data;
+        } else {
+            // Offline mode - use local storage
+            const videoId = extractVideoId(videoUrl);
+            const summary = await storageService.getSummary(videoId);
+
+            if (summary) {
+                // Convert to API response format
+                const summaries = summary.summaries.map((s) => ({
+                    id: s.summaryId,
+                    video_id: summary.videoId,
+                    video_url: summary.url,
+                    video_title: summary.title,
+                    video_thumbnail_url: summary.thumbnailUrl,
+                    summary_text: s.text,
+                    summary_type: s.type,
+                    summary_length: s.length,
+                    created_at: s.generatedAt,
+                    is_starred: s.is_starred || false,
+                    thumbnailLocalUri: summary.thumbnailLocalUri,
+                }));
+
+                return {
+                    video_url: videoUrl,
+                    summaries,
+                    count: summaries.length,
+                };
+            }
+
             return {
                 video_url: videoUrl,
                 summaries: [],
                 count: 0,
             };
         }
+    } catch (error) {
+        console.error(
+            `Error fetching summaries for video URL ${videoUrl}:`,
+            error
+        );
 
-        throw error;
+        // Fallback to local storage
+        const videoId = extractVideoId(videoUrl);
+        const summary = await storageService.getSummary(videoId);
+
+        if (summary) {
+            // Convert to API response format
+            const summaries = summary.summaries.map((s) => ({
+                id: s.summaryId,
+                video_id: summary.videoId,
+                video_url: summary.url,
+                video_title: summary.title,
+                video_thumbnail_url: summary.thumbnailUrl,
+                summary_text: s.text,
+                summary_type: s.type,
+                summary_length: s.length,
+                created_at: s.generatedAt,
+                is_starred: s.is_starred || false,
+                thumbnailLocalUri: summary.thumbnailLocalUri,
+            }));
+
+            return {
+                video_url: videoUrl,
+                summaries,
+                count: summaries.length,
+            };
+        }
+
+        // If there's a network error, return empty data
+        return {
+            video_url: videoUrl,
+            summaries: [],
+            count: 0,
+        };
+    }
+};
+
+// Process the offline queue
+export const processQueue = async () => {
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
+
+    if (!isNetworkAvailable) {
+        console.log("Network not available, skipping queue processing");
+        return { processed: 0, failed: 0 };
+    }
+
+    try {
+        const queue = await queueService.getQueue();
+
+        if (queue.length === 0) {
+            return { processed: 0, failed: 0 };
+        }
+
+        let processed = 0;
+        let failed = 0;
+
+        // Process each queue item
+        for (const item of queue) {
+            // Skip items that are not pending
+            if (item.status !== "pending") {
+                continue;
+            }
+
+            try {
+                // Update status to processing
+                await queueService.updateQueueItemStatus(
+                    item.requestId,
+                    "processing"
+                );
+
+                // Generate summary
+                const response = await api.post("/generate-summary", {
+                    url: item.url,
+                    summary_type: item.type,
+                    summary_length: item.length,
+                });
+
+                const summary = response.data;
+
+                // Cache the summary locally
+                await storageService.saveSummary(summary);
+
+                // Cache the thumbnail if available
+                if (summary.video_thumbnail_url) {
+                    const videoId = extractVideoId(summary.video_url);
+                    const cachedImageUri = await cacheService.cacheImage(
+                        summary.video_thumbnail_url,
+                        videoId
+                    );
+
+                    if (cachedImageUri) {
+                        // Update the summary with the local thumbnail URI
+                        await storageService.updateSummary(
+                            videoId,
+                            summary.id,
+                            { thumbnailLocalUri: cachedImageUri }
+                        );
+                    }
+                }
+
+                // Remove from queue
+                await queueService.removeFromQueue(item.requestId);
+
+                processed++;
+            } catch (error) {
+                console.error(
+                    `Error processing queue item ${item.requestId}:`,
+                    error
+                );
+
+                // Update status to failed
+                await queueService.updateQueueItemStatus(
+                    item.requestId,
+                    "failed",
+                    error.message
+                );
+
+                failed++;
+            }
+        }
+
+        return { processed, failed };
+    } catch (error) {
+        console.error("Error processing queue:", error);
+        return { processed: 0, failed: 0, error: error.message };
     }
 };
 
@@ -335,4 +932,5 @@ export default {
     toggleStarSummary,
     deleteSummary,
     getVideoSummaries,
+    processQueue,
 };

@@ -41,13 +41,19 @@
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library",
         "UIBackgroundModes": [
           "fetch",
-          "remote-notification"
+          "remote-notification",
+          "processing"
         ],
         "UISupportsDocumentBrowser": true,
-        "UIFileSharingEnabled": true
+        "UIFileSharingEnabled": true,
+        "NSNetworkVolumesUsageDescription": "This app needs access to network volumes to store and retrieve data",
+        "NSLocalNetworkUsageDescription": "This app needs access to the local network to detect connectivity status"
       },
       "usesIcloudStorage": false,
-      "bundleIdentifier": "com.chirag127.YTSummarizer2reactnativeexpoapp"
+      "bundleIdentifier": "com.chirag127.YTSummarizer2reactnativeexpoapp",
+      "entitlements": {
+        "com.apple.developer.networking.wifi-info": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -55,6 +61,13 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.chirag127.YTSummarizer2reactnativeexpoapp",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "FOREGROUND_SERVICE",
+        "WAKE_LOCK"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",

@@ -4,8 +4,31 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet, View, Platform, Linking } from "react-native";
 import AppNavigator from "./src/navigation/AppNavigator";
 import * as IntentLauncher from "expo-intent-launcher";
+import { NetworkProvider } from "./src/context/NetworkContext";
+import NetworkStatusIndicator from "./src/components/NetworkStatusIndicator";
+import * as cacheService from "./src/services/cacheService";
+import { registerBackgroundTasks } from "./src/tasks/backgroundTasks";
 
 export default function App() {
+    // Initialize cache and register background tasks
+    useEffect(() => {
+        const initializeApp = async () => {
+            try {
+                // Initialize cache
+                await cacheService.initializeCache();
+                console.log("Cache initialized");
+
+                // Register background tasks
+                await registerBackgroundTasks();
+                console.log("Background tasks registered");
+            } catch (error) {
+                console.error("Error initializing app:", error);
+            }
+        };
+
+        initializeApp();
+    }, []);
+
     // Handle shared content at the app level
     useEffect(() => {
         // Function to handle initial URL
@@ -39,12 +62,15 @@ export default function App() {
     }, []);
 
     return (
-        <GestureHandlerRootView style={styles.container}>
-            <View style={styles.container}>
-                <StatusBar style="auto" />
-                <AppNavigator />
-            </View>
-        </GestureHandlerRootView>
+        <NetworkProvider>
+            <GestureHandlerRootView style={styles.container}>
+                <View style={styles.container}>
+                    <StatusBar style="auto" />
+                    <NetworkStatusIndicator />
+                    <AppNavigator />
+                </View>
+            </GestureHandlerRootView>
+        </NetworkProvider>
     );
 }
 

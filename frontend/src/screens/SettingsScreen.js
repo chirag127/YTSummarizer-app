@@ -16,6 +16,7 @@ import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import Slider from "@react-native-community/slider";
+import * as WebBrowser from "expo-web-browser";
 
 // Import components, services, and utilities
 import {
@@ -37,6 +38,11 @@ import {
     TTS_RATE_OPTIONS,
     TTS_PITCH_OPTIONS,
 } from "../constants";
+import { useNetwork } from "../context/NetworkContext";
+import * as storageService from "../services/storageService";
+import * as cacheService from "../services/cacheService";
+import * as queueService from "../services/queueService";
+import * as syncService from "../services/syncService";
 
 const SettingsScreen = () => {
     // State
@@ -54,6 +60,21 @@ const SettingsScreen = () => {
     const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
     const [isTestingApiKey, setIsTestingApiKey] = useState(false);
     const [apiKeyVisible, setApiKeyVisible] = useState(false);
+
+    // Network status
+    const { isConnected, isInternetReachable, type } = useNetwork();
+    const isOnline = isConnected && isInternetReachable;
+
+    // Cache info state
+    const [cacheInfo, setCacheInfo] = useState({
+        summariesSize: 0,
+        thumbnailsSize: 0,
+        lastUpdated: Date.now(),
+    });
+    const [isLoadingCacheInfo, setIsLoadingCacheInfo] = useState(true);
+    const [queueCount, setQueueCount] = useState(0);
+    const [syncLogCount, setSyncLogCount] = useState(0);
+    const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
     // Load settings, voices, and API key
     useEffect(() => {
@@ -94,6 +115,53 @@ const SettingsScreen = () => {
         };
 
         loadSettings();
+    }, []);
+
+    // Load cache info
+    useEffect(() => {
+        const loadCacheInfo = async () => {
+            setIsLoadingCacheInfo(true);
+            try {
+                // Get cache info
+                const info = await storageService.getCacheInfo();
+
+                // Get actual thumbnail cache size
+                const thumbnailSize = await cacheService.getCacheSize();
+
+                setCacheInfo({
+                    ...info,
+                    thumbnailsSize: thumbnailSize,
+                });
+            } catch (error) {
+                console.error("Error loading cache info:", error);
+            } finally {
+                setIsLoadingCacheInfo(false);
+            }
+        };
+
+        loadCacheInfo();
+    }, []);
+
+    // Load queue and sync log counts
+    useEffect(() => {
+        const loadCounts = async () => {
+            setIsLoadingCounts(true);
+            try {
+                // Get queue
+                const queue = await queueService.getQueue();
+                setQueueCount(queue.length);
+
+                // Get sync log
+                const syncLog = await syncService.getSyncLog();
+                setSyncLogCount(syncLog.length);
+            } catch (error) {
+                console.error("Error loading counts:", error);
+            } finally {
+                setIsLoadingCounts(false);
+            }
+        };
+
+        loadCounts();
     }, []);
 
     // Handle rate change
@@ -518,6 +586,235 @@ const SettingsScreen = () => {
         Linking.openURL("https://makersuite.google.com/app/apikey");
     };
 
+    // Format bytes to human-readable size
+    const formatBytes = (bytes, decimals = 2) => {
+        if (bytes === 0) return "0 Bytes";
+
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return (
+            parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+        );
+    };
+
+    // Handle clear summaries cache
+    const handleClearSummariesCache = () => {
+        Alert.alert(
+            "Clear Summaries Cache",
+            "Are you sure you want to clear all cached summaries? This will remove all offline summaries data.",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: "Clear",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await storageService.clearAllSummaries();
+
+                            // Update cache info
+                            setCacheInfo((prev) => ({
+                                ...prev,
+                                summariesSize: 0,
+                                lastUpdated: Date.now(),
+                            }));
+
+                            Alert.alert(
+                                "Success",
+                                "Summaries cache has been cleared"
+                            );
+                        } catch (error) {
+                            console.error(
+                                "Error clearing summaries cache:",
+                                error
+                            );
+                            Alert.alert(
+                                "Error",
+                                "Failed to clear summaries cache. Please try again."
+                            );
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // Handle clear thumbnails cache
+    const handleClearThumbnailsCache = () => {
+        Alert.alert(
+            "Clear Thumbnails Cache",
+            "Are you sure you want to clear all cached thumbnails? This will remove all offline thumbnail images.",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: "Clear",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await cacheService.clearImageCache();
+
+                            // Update cache info
+                            setCacheInfo((prev) => ({
+                                ...prev,
+                                thumbnailsSize: 0,
+                                lastUpdated: Date.now(),
+                            }));
+
+                            Alert.alert(
+                                "Success",
+                                "Thumbnails cache has been cleared"
+                            );
+                        } catch (error) {
+                            console.error(
+                                "Error clearing thumbnails cache:",
+                                error
+                            );
+                            Alert.alert(
+                                "Error",
+                                "Failed to clear thumbnails cache. Please try again."
+                            );
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // Handle clear queue
+    const handleClearQueue = () => {
+        Alert.alert(
+            "Clear Queue",
+            "Are you sure you want to clear the offline queue? This will remove all pending summary requests.",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: "Clear",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await queueService.clearQueue();
+                            setQueueCount(0);
+
+                            Alert.alert("Success", "Queue has been cleared");
+                        } catch (error) {
+                            console.error("Error clearing queue:", error);
+                            Alert.alert(
+                                "Error",
+                                "Failed to clear queue. Please try again."
+                            );
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // Handle clear sync log
+    const handleClearSyncLog = () => {
+        Alert.alert(
+            "Clear Sync Log",
+            "Are you sure you want to clear the sync log? This will remove all pending changes that haven't been synced to the server.",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: "Clear",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await syncService.clearSyncLog();
+                            setSyncLogCount(0);
+
+                            Alert.alert("Success", "Sync log has been cleared");
+                        } catch (error) {
+                            console.error("Error clearing sync log:", error);
+                            Alert.alert(
+                                "Error",
+                                "Failed to clear sync log. Please try again."
+                            );
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // Handle process queue
+    const handleProcessQueue = async () => {
+        if (!isOnline) {
+            Alert.alert(
+                "Offline",
+                "You are currently offline. Please connect to the internet to process the queue."
+            );
+            return;
+        }
+
+        try {
+            Alert.alert(
+                "Process Queue",
+                "Processing the queue will attempt to generate summaries for all pending requests. This may take some time. Do you want to continue?",
+                [
+                    {
+                        text: "Cancel",
+                        style: "cancel",
+                    },
+                    {
+                        text: "Process",
+                        onPress: async () => {
+                            try {
+                                const result =
+                                    await syncService.processSyncLog();
+
+                                if (result) {
+                                    // Refresh sync log count
+                                    const syncLog =
+                                        await syncService.getSyncLog();
+                                    setSyncLogCount(syncLog.length);
+
+                                    Alert.alert(
+                                        "Success",
+                                        "Sync log has been processed successfully"
+                                    );
+                                } else {
+                                    Alert.alert(
+                                        "Warning",
+                                        "Some items in the sync log could not be processed. Please try again later."
+                                    );
+                                }
+                            } catch (error) {
+                                console.error(
+                                    "Error processing sync log:",
+                                    error
+                                );
+                                Alert.alert(
+                                    "Error",
+                                    "Failed to process sync log. Please try again."
+                                );
+                            }
+                        },
+                    },
+                ]
+            );
+        } catch (error) {
+            console.error("Error processing queue:", error);
+            Alert.alert("Error", "Failed to process queue. Please try again.");
+        }
+    };
+
     // Render API key section
     const renderApiKeySection = () => {
         return (
@@ -646,6 +943,202 @@ const SettingsScreen = () => {
         );
     };
 
+    // Render network status section
+    const renderNetworkStatusSection = () => {
+        return (
+            <View style={styles.settingSection}>
+                <Text style={styles.settingTitle}>Network Status</Text>
+                <View style={styles.networkStatusContainer}>
+                    <View style={styles.networkStatusItem}>
+                        <Text style={styles.networkStatusLabel}>Status:</Text>
+                        <View style={styles.networkStatusValue}>
+                            <View
+                                style={[
+                                    styles.statusIndicator,
+                                    {
+                                        backgroundColor: isOnline
+                                            ? COLORS.success
+                                            : COLORS.error,
+                                    },
+                                ]}
+                            />
+                            <Text style={styles.networkStatusText}>
+                                {isOnline ? "Online" : "Offline"}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.networkStatusItem}>
+                        <Text style={styles.networkStatusLabel}>Type:</Text>
+                        <Text style={styles.networkStatusText}>
+                            {type || "Unknown"}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
+    // Render offline data section
+    const renderOfflineDataSection = () => {
+        return (
+            <View style={styles.settingSection}>
+                <Text style={styles.settingTitle}>Offline Data</Text>
+
+                {isLoadingCacheInfo || isLoadingCounts ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                ) : (
+                    <>
+                        <View style={styles.cacheInfoContainer}>
+                            <View style={styles.cacheInfoItem}>
+                                <Text style={styles.cacheInfoLabel}>
+                                    Summaries Cache:
+                                </Text>
+                                <Text style={styles.cacheInfoValue}>
+                                    {formatBytes(cacheInfo.summariesSize)}
+                                </Text>
+                            </View>
+                            <View style={styles.cacheInfoItem}>
+                                <Text style={styles.cacheInfoLabel}>
+                                    Thumbnails Cache:
+                                </Text>
+                                <Text style={styles.cacheInfoValue}>
+                                    {formatBytes(cacheInfo.thumbnailsSize)}
+                                </Text>
+                            </View>
+                            <View style={styles.cacheInfoItem}>
+                                <Text style={styles.cacheInfoLabel}>
+                                    Queue Items:
+                                </Text>
+                                <Text style={styles.cacheInfoValue}>
+                                    {queueCount}
+                                </Text>
+                            </View>
+                            <View style={styles.cacheInfoItem}>
+                                <Text style={styles.cacheInfoLabel}>
+                                    Pending Sync Actions:
+                                </Text>
+                                <Text style={styles.cacheInfoValue}>
+                                    {syncLogCount}
+                                </Text>
+                            </View>
+                            <View style={styles.cacheInfoItem}>
+                                <Text style={styles.cacheInfoLabel}>
+                                    Last Updated:
+                                </Text>
+                                <Text style={styles.cacheInfoValue}>
+                                    {new Date(
+                                        cacheInfo.lastUpdated
+                                    ).toLocaleString()}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.cacheActionsContainer}>
+                            <TouchableOpacity
+                                style={styles.cacheActionButton}
+                                onPress={handleClearSummariesCache}
+                            >
+                                <Ionicons
+                                    name="trash-outline"
+                                    size={18}
+                                    color={COLORS.error}
+                                />
+                                <Text style={styles.cacheActionButtonText}>
+                                    Clear Summaries
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.cacheActionButton}
+                                onPress={handleClearThumbnailsCache}
+                            >
+                                <Ionicons
+                                    name="image-outline"
+                                    size={18}
+                                    color={COLORS.error}
+                                />
+                                <Text style={styles.cacheActionButtonText}>
+                                    Clear Thumbnails
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.cacheActionButton}
+                                onPress={handleClearQueue}
+                                disabled={queueCount === 0}
+                            >
+                                <Ionicons
+                                    name="time-outline"
+                                    size={18}
+                                    color={
+                                        queueCount === 0
+                                            ? COLORS.disabled
+                                            : COLORS.error
+                                    }
+                                />
+                                <Text
+                                    style={[
+                                        styles.cacheActionButtonText,
+                                        queueCount === 0 && {
+                                            color: COLORS.disabled,
+                                        },
+                                    ]}
+                                >
+                                    Clear Queue
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.cacheActionButton}
+                                onPress={handleClearSyncLog}
+                                disabled={syncLogCount === 0}
+                            >
+                                <Ionicons
+                                    name="sync-outline"
+                                    size={18}
+                                    color={
+                                        syncLogCount === 0
+                                            ? COLORS.disabled
+                                            : COLORS.error
+                                    }
+                                />
+                                <Text
+                                    style={[
+                                        styles.cacheActionButtonText,
+                                        syncLogCount === 0 && {
+                                            color: COLORS.disabled,
+                                        },
+                                    ]}
+                                >
+                                    Clear Sync Log
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.processQueueButton,
+                                    (!isOnline || queueCount === 0) &&
+                                        styles.disabledButton,
+                                ]}
+                                onPress={handleProcessQueue}
+                                disabled={!isOnline || queueCount === 0}
+                            >
+                                <Ionicons
+                                    name="cloud-upload-outline"
+                                    size={18}
+                                    color={COLORS.background}
+                                />
+                                <Text style={styles.processQueueButtonText}>
+                                    Process Queue Now
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </>
+                )}
+            </View>
+        );
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -656,6 +1149,8 @@ const SettingsScreen = () => {
                     </Text>
                 </View>
 
+                {renderNetworkStatusSection()}
+                {renderOfflineDataSection()}
                 {renderApiKeySection()}
 
                 <View style={styles.sectionHeader}>
@@ -1004,6 +1499,94 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary,
         marginBottom: SPACING.sm,
         textAlign: "center",
+    },
+    // Network status styles
+    networkStatusContainer: {
+        marginTop: SPACING.sm,
+    },
+    networkStatusItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: SPACING.sm,
+    },
+    networkStatusLabel: {
+        fontSize: FONT_SIZES.md,
+        color: COLORS.textSecondary,
+        width: 80,
+    },
+    networkStatusValue: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    networkStatusText: {
+        fontSize: FONT_SIZES.md,
+        color: COLORS.text,
+    },
+    statusIndicator: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginRight: SPACING.sm,
+    },
+    // Cache info styles
+    cacheInfoContainer: {
+        marginTop: SPACING.sm,
+    },
+    cacheInfoItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: SPACING.sm,
+    },
+    cacheInfoLabel: {
+        fontSize: FONT_SIZES.md,
+        color: COLORS.textSecondary,
+        width: 150,
+    },
+    cacheInfoValue: {
+        fontSize: FONT_SIZES.md,
+        color: COLORS.text,
+    },
+    cacheActionsContainer: {
+        marginTop: SPACING.md,
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-between",
+    },
+    cacheActionButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: COLORS.background,
+        borderWidth: 1,
+        borderColor: COLORS.error,
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.sm,
+        borderRadius: 4,
+        marginBottom: SPACING.sm,
+        width: "48%",
+    },
+    cacheActionButtonText: {
+        color: COLORS.error,
+        marginLeft: SPACING.sm,
+        fontSize: FONT_SIZES.sm,
+    },
+    processQueueButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.sm,
+        borderRadius: 4,
+        marginTop: SPACING.sm,
+        width: "100%",
+    },
+    processQueueButtonText: {
+        color: COLORS.background,
+        marginLeft: SPACING.sm,
+        fontWeight: "bold",
+    },
+    disabledButton: {
+        backgroundColor: COLORS.disabled,
     },
 });
 
