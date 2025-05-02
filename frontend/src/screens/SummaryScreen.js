@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Markdown from "react-native-markdown-display";
+import { useTimeZone } from "../context/TimeZoneContext";
 
 // Import components, services, and utilities
 import {
@@ -50,6 +51,9 @@ import {
 const SummaryScreen = ({ route, navigation }) => {
     // Get summary from route params
     const { summary } = route.params || {};
+
+    // Get time zone context
+    const { getCurrentTimeZone, formatDateWithTimeZone } = useTimeZone();
 
     // State
     const [isPlaying, setIsPlaying] = useState(false);
@@ -510,7 +514,10 @@ const SummaryScreen = ({ route, navigation }) => {
                                 Created:
                             </Text>
                             <Text style={styles.summaryTypeValue}>
-                                {formatDate(summary.created_at)}
+                                {formatDateWithOptions(summary.created_at, {
+                                    timeZone: getCurrentTimeZone(),
+                                    includeTimeZoneName: true,
+                                })}
                             </Text>
                         </View>
                         {summary.timeTaken !== undefined && (
@@ -651,7 +658,13 @@ const SummaryScreen = ({ route, navigation }) => {
                                             <Text
                                                 style={styles.otherSummaryDate}
                                             >
-                                                {formatDate(item.created_at)}
+                                                {formatDateWithOptions(
+                                                    item.created_at,
+                                                    {
+                                                        timeZone:
+                                                            getCurrentTimeZone(),
+                                                    }
+                                                )}
                                             </Text>
                                         </View>
                                         <Ionicons

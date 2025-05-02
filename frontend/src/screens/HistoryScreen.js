@@ -21,8 +21,9 @@ import {
     deleteSummary,
     toggleStarSummary,
 } from "../services/api";
-import { formatDate } from "../utils";
+import { formatDateWithOptions } from "../utils";
 import { COLORS, SPACING, FONT_SIZES, SCREENS, SHADOWS } from "../constants";
+import { useTimeZone } from "../context/TimeZoneContext";
 
 const HistoryScreen = ({ navigation }) => {
     // State
@@ -41,6 +42,9 @@ const HistoryScreen = ({ navigation }) => {
         has_next: false,
         has_prev: false,
     });
+
+    // Get time zone context
+    const { getCurrentTimeZone, formatDateWithTimeZone } = useTimeZone();
 
     // Fetch summaries
     const fetchSummaries = async (showRefreshing = false, page = 1) => {
@@ -254,7 +258,9 @@ const HistoryScreen = ({ navigation }) => {
                         {item.video_title || "Untitled Video"}
                     </Text>
                     <Text style={styles.summaryDate}>
-                        {formatDate(item.created_at)}
+                        {formatDateWithOptions(item.created_at, {
+                            timeZone: getCurrentTimeZone(),
+                        })}
                     </Text>
                     <View style={styles.summaryTypeContainer}>
                         <View style={[styles.badge, styles.typeBadge]}>

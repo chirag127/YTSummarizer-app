@@ -11,7 +11,7 @@ import os
 from typing import Any, Dict, Optional
 import logging
 import redis.asyncio as redis
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ async def set_cache(key: str, value: Any) -> bool:
 
         # Add timestamp to value for LRU implementation
         if isinstance(value, dict):
-            value['_cached_at'] = datetime.now().isoformat()
+            value['_cached_at'] = datetime.now(timezone.utc).isoformat()
 
         # Serialize value to JSON
         serialized_value = json.dumps(value)

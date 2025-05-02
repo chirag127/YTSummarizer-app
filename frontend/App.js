@@ -5,6 +5,7 @@ import { StyleSheet, View, Platform, Linking } from "react-native";
 import AppNavigator from "./src/navigation/AppNavigator";
 import * as IntentLauncher from "expo-intent-launcher";
 import { NetworkProvider } from "./src/context/NetworkContext";
+import { TimeZoneProvider } from "./src/context/TimeZoneContext";
 import NetworkStatusIndicator from "./src/components/NetworkStatusIndicator";
 import * as cacheService from "./src/services/cacheService";
 import { registerBackgroundTasks } from "./src/tasks/backgroundTasks";
@@ -63,13 +64,15 @@ export default function App() {
 
     return (
         <NetworkProvider>
-            <GestureHandlerRootView style={styles.container}>
-                <View style={styles.container}>
-                    <StatusBar style="auto" />
-                    <NetworkStatusIndicator />
-                    <AppNavigator />
-                </View>
-            </GestureHandlerRootView>
+            <TimeZoneProvider>
+                <GestureHandlerRootView style={styles.container}>
+                    <View style={styles.container}>
+                        <StatusBar style="auto" />
+                        <NetworkStatusIndicator />
+                        <AppNavigator />
+                    </View>
+                </GestureHandlerRootView>
+            </TimeZoneProvider>
         </NetworkProvider>
     );
 }

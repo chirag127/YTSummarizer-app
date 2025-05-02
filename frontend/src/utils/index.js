@@ -1,6 +1,8 @@
 import { YOUTUBE_URL_REGEX } from "../constants";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
+import * as Localization from "expo-localization";
+import moment from "moment-timezone";
 
 // URL validation removed as per requirement
 export const isValidYouTubeUrl = (url) => {
@@ -57,17 +59,50 @@ export const extractVideoId = (url) => {
 };
 
 // Format date
-export const formatDate = (dateString) => {
+export const formatDate = (dateString, timeZone = null) => {
     if (!dateString) return "";
 
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
+    // If a specific time zone is provided, use it
+    if (timeZone) {
+        return moment(dateString).tz(timeZone).format("MMM D, YYYY h:mm A");
+    }
+
+    // Otherwise, use the device's time zone
+    const deviceTimeZone = Localization.timezone;
+    return moment(dateString).tz(deviceTimeZone).format("MMM D, YYYY h:mm A");
+};
+
+// Format date with time zone options
+export const formatDateWithOptions = (dateString, options = {}) => {
+    if (!dateString) return "";
+
+    const {
+        timeZone = Localization.timezone,
+        format = "MMM D, YYYY h:mm A",
+        includeTimeZoneName = false,
+    } = options;
+
+    let formattedDate = moment(dateString).tz(timeZone).format(format);
+
+    // Optionally include the time zone name
+    if (includeTimeZoneName) {
+        const timeZoneName = moment.tz
+            .zone(timeZone)
+            .abbr(moment(dateString).unix());
+        formattedDate += ` (${timeZoneName})`;
+    }
+
+    return formattedDate;
+};
+
+// Get user's time zone
+export const getUserTimeZone = () => {
+    return Localization.timezone;
+};
+
+// Get all available time zones
+export const getAvailableTimeZones = () => {
+    return moment.tz.names();
 };
 
 // Truncate text
@@ -158,6 +193,9 @@ export default {
     isValidYouTubeUrl,
     extractVideoId,
     formatDate,
+    formatDateWithOptions,
+    getUserTimeZone,
+    getAvailableTimeZones,
     truncateText,
     copyToClipboard,
     openUrl,

@@ -135,6 +135,10 @@ def is_valid_youtube_url(url: str) -> bool:
     youtube_regex = r'^(https?://)?(www\.|m\.)?(youtube\.com|youtu\.be)/.+$'
     return bool(re.match(youtube_regex, str(url)))
 
+def get_utc_now() -> datetime:
+    """Get current time in UTC timezone."""
+    return datetime.now(timezone.utc)
+
 import requests
 import re
 from urllib.parse import urlparse, parse_qs
@@ -727,7 +731,7 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_us
         raise
 
     # Create summary document
-    now = datetime.now(timezone.utc)
+    now = get_utc_now()
     summary = {
         "video_url": url,
         "video_title": video_info.get('title', 'Title Unavailable'),
@@ -872,7 +876,7 @@ async def update_summary(summary_id: str, update_data: SummaryUpdate, db=Depends
             raise
 
         # Create a new summary document
-        now = datetime.now(timezone.utc)
+        now = get_utc_now()
         new_summary = {
             "video_url": existing_summary["video_url"],
             "video_title": existing_summary["video_title"],
@@ -908,7 +912,7 @@ async def toggle_star_summary(summary_id: str, star_update: StarUpdate, db=Depen
             raise HTTPException(status_code=404, detail="Summary not found")
 
         # Update the star status
-        now = datetime.now(timezone.utc)
+        now = get_utc_now()
         await db.summaries.update_one(
             {"_id": ObjectId(summary_id)},
             {"$set": {"is_starred": star_update.is_starred, "updated_at": now}}

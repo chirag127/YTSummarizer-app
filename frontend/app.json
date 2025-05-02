@@ -100,7 +100,7 @@
           ],
           "data": {
             "mimeType": "text/plain"
-          },
+          }
         },
         {
           "action": "PROCESS_TEXT",
@@ -109,7 +109,7 @@
           ],
           "data": {
             "mimeType": "text/plain"
-          },
+          }
         },
         {
           "action": "SEND",
@@ -118,7 +118,7 @@
           ],
           "data": {
             "mimeType": "text/*"
-          },
+          }
         },
         {
           "action": "SEND",
@@ -130,7 +130,7 @@
             "mimeType": "*/*",
             "scheme": "https",
             "host": "*.youtube.com"
-          },
+          }
         },
         {
           "action": "SEND",
@@ -143,7 +143,7 @@
             "mimeType": "text/*",
             "scheme": "https",
             "host": "*.youtube.com"
-          },
+          }
         },
         {
           "action": "SEND",
@@ -154,7 +154,7 @@
             "mimeType": "*/*",
             "scheme": "https",
             "host": "m.youtube.com"
-          },
+          }
         },
         {
           "action": "SEND",
@@ -166,7 +166,7 @@
             "mimeType": "*/*",
             "scheme": "https",
             "host": "youtu.be"
-          },
+          }
         },
         {
           "action": "SEND",
@@ -176,7 +176,7 @@
           ],
           "data": {
             "mimeType": "text/*"
-          },
+          }
         },
         {
           "action": "SEND_MULTIPLE",
@@ -185,7 +185,7 @@
           ],
           "data": {
             "mimeType": "text/*"
-          },
+          }
         },
         {
           "action": "SEND",
@@ -195,7 +195,7 @@
           "data": {
             "mimeType": "text/plain",
             "scheme": "vnd.youtube"
-          },
+          }
         }
       ]
     },
@@ -206,6 +206,11 @@
       "eas": {
         "projectId": "0001e79c-7e01-4762-b948-646cc2c9dc0a"
       }
-    }
+    },
+    "plugins": [
+      "expo-localization",
+      "expo-secure-store",
+      "expo-web-browser"
+    ]
   }
 }
