@@ -888,6 +888,18 @@ const SummaryScreen = ({ route, navigation }) => {
                     />
                     <Text style={styles.actionButtonText}>New Type</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate("QA", { summary })}
+                >
+                    <Ionicons
+                        name="chatbubble-outline"
+                        size={24}
+                        color={COLORS.primary}
+                    />
+                    <Text style={styles.actionButtonText}>Ask AI</Text>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
@@ -1022,6 +1034,7 @@ const styles = StyleSheet.create({
     },
     actionButtonsContainer: {
         flexDirection: "row",
+        flexWrap: "wrap",
         justifyContent: "space-around",
         borderTopWidth: 1,
         borderTopColor: COLORS.border,
@@ -1032,6 +1045,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         padding: SPACING.sm,
+        minWidth: 70,
+        marginHorizontal: 2,
+        marginVertical: 4,
     },
     actionButtonText: {
         fontSize: FONT_SIZES.xs,

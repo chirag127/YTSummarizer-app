@@ -8,6 +8,7 @@ import { Linking } from "react-native";
 // Import screens
 import HomeScreen from "../screens/HomeScreen";
 import SummaryScreen from "../screens/SummaryScreen";
+import QAScreen from "../screens/QAScreen";
 import HistoryScreen from "../screens/HistoryScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
@@ -42,6 +43,19 @@ const HomeStackNavigator = () => {
                 component={SummaryScreen}
                 options={({ route }) => ({
                     title: route.params?.summary?.video_title || "Summary",
+                    headerTitleContainerStyle: {
+                        width: "70%",
+                    },
+                    headerTitleStyle: {
+                        fontSize: 16,
+                    },
+                })}
+            />
+            <HomeStack.Screen
+                name={SCREENS.QA}
+                component={QAScreen}
+                options={({ route }) => ({
+                    title: "Ask AI about this Video",
                     headerTitleContainerStyle: {
                         width: "70%",
                     },

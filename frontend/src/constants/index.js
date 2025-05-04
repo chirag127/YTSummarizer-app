@@ -98,6 +98,7 @@ export const SCREENS = {
     SUMMARY: "Summary",
     HISTORY: "History",
     SETTINGS: "Settings",
+    QA: "QA",
 };
 
 // Tab Icons
