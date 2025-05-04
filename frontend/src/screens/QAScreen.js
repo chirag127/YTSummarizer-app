@@ -12,8 +12,8 @@ import {
     Alert,
     Image,
     Keyboard,
+    KeyboardAvoidingView,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import NetInfo from "@react-native-community/netinfo";
@@ -198,14 +198,28 @@ const QAScreen = ({ route, navigation }) => {
         return () => unsubscribe();
     }, []);
 
-    // Add keyboard listeners to scroll to bottom when keyboard appears
+    // Add keyboard listeners to scroll to bottom when keyboard appears or disappears
     useEffect(() => {
         const keyboardDidShowListener = Keyboard.addListener(
             "keyboardDidShow",
             () => {
                 // Scroll to bottom when keyboard appears
                 if (flatListRef.current && messages.length > 0) {
-                    flatListRef.current.scrollToEnd({ animated: true });
+                    setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                    }, 100); // Small delay to ensure layout is complete
+                }
+            }
+        );
+
+        const keyboardDidHideListener = Keyboard.addListener(
+            "keyboardDidHide",
+            () => {
+                // Scroll to bottom when keyboard hides
+                if (flatListRef.current && messages.length > 0) {
+                    setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                    }, 100); // Small delay to ensure layout is complete
                 }
             }
         );
@@ -213,6 +227,7 @@ const QAScreen = ({ route, navigation }) => {
         // Clean up listeners
         return () => {
             keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
         };
     }, [messages.length]);
 
@@ -441,65 +456,61 @@ const QAScreen = ({ route, navigation }) => {
 
     return (
         <SafeAreaView style={styles.container}>
-            <KeyboardAwareScrollView
-                style={styles.container}
-                contentContainerStyle={{ flexGrow: 1 }}
-                enableOnAndroid={true}
-                enableAutomaticScroll={true}
-                keyboardShouldPersistTaps="handled"
-                extraScrollHeight={Platform.OS === "ios" ? 120 : 80}
-                extraHeight={Platform.OS === "ios" ? 120 : 80}
-                enableResetScrollToCoords={false}
-                showsVerticalScrollIndicator={false}
+            {/* Video Info Header */}
+            <View style={styles.videoInfoContainer}>
+                <Image
+                    source={{
+                        uri:
+                            videoThumbnail ||
+                            "https://via.placeholder.com/480x360?text=No+Thumbnail",
+                    }}
+                    style={styles.thumbnail}
+                />
+                <Text style={styles.videoTitle} numberOfLines={2}>
+                    {videoTitle}
+                </Text>
+            </View>
+
+            {/* Messages List - Using FlatList directly instead of nesting in ScrollView */}
+            <View style={styles.messagesContainer}>
+                {console.log("Rendering FlatList with messages:", messages)}
+                <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    renderItem={renderMessage}
+                    keyExtractor={(item) => item.id || Date.now().toString()}
+                    contentContainerStyle={styles.messageList}
+                    onContentSizeChange={() => {
+                        console.log("Content size changed, scrolling to end");
+                        flatListRef.current?.scrollToEnd();
+                    }}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>
+                                Ask a question about the video content
+                            </Text>
+                            <Text style={styles.emptySubtext}>
+                                The AI will answer based on the video transcript
+                            </Text>
+                        </View>
+                    }
+                    // Add keyboard aware behavior directly to FlatList
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                    // Make sure the list can grow to fill available space
+                    style={{ flex: 1 }}
+                />
+
+                {isLoading && renderLoading()}
+                {error && renderError()}
+            </View>
+
+            {/* Input Container */}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 80}
+                style={styles.keyboardAvoidingContainer}
             >
-                {/* Video Info Header */}
-                <View style={styles.videoInfoContainer}>
-                    <Image
-                        source={{
-                            uri:
-                                videoThumbnail ||
-                                "https://via.placeholder.com/480x360?text=No+Thumbnail",
-                        }}
-                        style={styles.thumbnail}
-                    />
-                    <Text style={styles.videoTitle} numberOfLines={2}>
-                        {videoTitle}
-                    </Text>
-                </View>
-
-                <View style={{ flex: 1 }}>
-                    {console.log("Rendering FlatList with messages:", messages)}
-                    <FlatList
-                        ref={flatListRef}
-                        data={messages}
-                        renderItem={renderMessage}
-                        keyExtractor={(item) =>
-                            item.id || Date.now().toString()
-                        }
-                        contentContainerStyle={styles.messageList}
-                        onContentSizeChange={() => {
-                            console.log(
-                                "Content size changed, scrolling to end"
-                            );
-                            flatListRef.current?.scrollToEnd();
-                        }}
-                        ListEmptyComponent={
-                            <View style={styles.emptyContainer}>
-                                <Text style={styles.emptyText}>
-                                    Ask a question about the video content
-                                </Text>
-                                <Text style={styles.emptySubtext}>
-                                    The AI will answer based on the video
-                                    transcript
-                                </Text>
-                            </View>
-                        }
-                    />
-
-                    {isLoading && renderLoading()}
-                    {error && renderError()}
-                </View>
-
                 <View style={styles.inputContainer}>
                     {isOffline && (
                         <View style={styles.offlineBanner}>
@@ -545,7 +556,7 @@ const QAScreen = ({ route, navigation }) => {
                         />
                     </TouchableOpacity>
                 </View>
-            </KeyboardAwareScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 };
@@ -560,6 +571,14 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         padding: SPACING.xl,
+    },
+    messagesContainer: {
+        flex: 1,
+        backgroundColor: COLORS.background,
+    },
+    keyboardAvoidingContainer: {
+        width: "100%",
+        backgroundColor: COLORS.background,
     },
     videoInfoContainer: {
         padding: SPACING.md,
