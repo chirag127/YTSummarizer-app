@@ -116,9 +116,12 @@ The YTSummarizer application currently provides AI-generated summaries of YouTub
           updatedAt: Date
         }
         ```
+
+    *   the transcript should not be stored in the database and should be fetched from yt-dlp each time a question is asked. This ensures that the most up-to-date transcript is used for Q&A. but redis caching should be implemented to avoid fetching the transcript from yt-dlp every time a question is asked. The transcript should be cached in redis for a certain period (e.g., 6 hour) to improve performance and reduce load on yt-dlp.
     *   Implement logic to retrieve the conversation history from the `video_chats` collection when the frontend requests it (e.g., on loading the Q&A screen for a video). This might be a separate `GET` endpoint or integrated into the `POST` response. A separate `GET` endpoint is cleaner for initial load.
     *   Implement comprehensive error handling for:
-        *   Database errors (transcript not found, history storage/retrieval issues).
+        *   Database errors (history storage/retrieval issues).
+
         *   Gemini API errors (API keys, rate limits, model issues, content filtering).
         *   Transcript processing errors (e.g., malformed data).
     *   Consider the need for handling very long transcripts that exceed the model's context window. Potential strategies (if passing the whole transcript isn't feasible for common videos):
