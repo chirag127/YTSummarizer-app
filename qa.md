@@ -144,10 +144,15 @@ The YTSummarizer application currently provides AI-generated summaries of YouTub
 **9. Open Questions / Risks**
 
 *   **Handling Long Transcripts:** The primary technical challenge will be effectively handling transcripts that exceed the Gemini model's context window. Implementing RAG adds significant complexity but is likely necessary for a robust "final product" feature capable of handling arbitrary video lengths. A decision point early in development will be whether to pursue RAG immediately or start with a simpler strategy (like truncation or summary-based prompting) and evaluate its limitations. *As per the "final product" constraint for *this feature's scope*, the chosen strategy must be robust enough for common long videos, leaning towards RAG if simpler methods fail.*
+answer: For the final product, RAG is the preferred method for handling long transcripts, as it provides better results and is more robust for a wide range of video lengths.
 *   **AI Accuracy and Reliability:** The AI's ability to accurately answer questions based *solely* on the transcript can vary. Robust prompt engineering and error handling are crucial.
+answer: *AI Accuracy and Reliability:* The AI's ability to accurately answer questions based *solely* on the transcript can vary. Robust prompt engineering and error handling are crucial.
 *   **Cost:** While Gemini Flash is low-cost, high usage could still accumulate costs. Monitoring and potential backend-level rate limiting (beyond user experience loading states) might be considered for extreme cases, though not a core user-facing requirement.
+answer: Monitoring and potential backend-level rate limiting (beyond user experience loading states) might be considered for extreme cases, though not a core user-facing requirement.
 *   **Prompt Injection:** Users might try to bypass the instruction to answer *only* from the transcript. Prompt engineering must include safety mechanisms against this.
+answer: Prompt engineering must include safety mechanisms against this.
 *   **Videos Without Transcripts:** Need a clear and user-friendly way to communicate that Q&A is not possible for such videos.
+answer: Need a clear and user-friendly way to communicate that Q&A is not possible for such videos.
 
 **10. Out of Scope (for this specific feature's current scope)**
 
