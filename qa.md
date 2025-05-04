@@ -1,6 +1,4 @@
-Okay, here is a Product Requirements Document (PRD) for the AI-powered Q&A feature for the YTSummarizer application, built to be comprehensive for the final product state of this specific feature, leaving nothing *for this feature's core functionality* to a later phase.
 
----
 
 **Product Requirements Document (PRD)**
 
