@@ -248,7 +248,9 @@ const QAScreen = ({ route, navigation }) => {
 
         // Add user message to chat
         const userMessage = {
-            id: Date.now().toString(),
+            id: `user-${Date.now()}-${Math.random()
+                .toString(36)
+                .substring(2, 11)}`,
             content: question,
             role: "user",
             timestamp: new Date().toISOString(),
@@ -290,7 +292,9 @@ const QAScreen = ({ route, navigation }) => {
                         id:
                             aiResponse.id ||
                             response.id ||
-                            (Date.now() + 1).toString(),
+                            `ai-${Date.now()}-${Math.random()
+                                .toString(36)
+                                .substring(2, 11)}`,
                         content: aiResponse.content,
                         // Normalize role to "assistant" for consistent rendering
                         role: "assistant",
@@ -478,7 +482,9 @@ const QAScreen = ({ route, navigation }) => {
                     ref={flatListRef}
                     data={messages}
                     renderItem={renderMessage}
-                    keyExtractor={(item) => item.id || Date.now().toString()}
+                    keyExtractor={(item, index) =>
+                        item.id || `message-${index}-${Date.now()}`
+                    }
                     contentContainerStyle={styles.messageList}
                     onContentSizeChange={() => {
                         console.log("Content size changed, scrolling to end");
