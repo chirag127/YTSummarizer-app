@@ -109,6 +109,7 @@ const QAScreen = ({ route, navigation }) => {
         try {
             const response = await getVideoQAHistory(videoId, forceTranscript);
             if (response.history) {
+                console.log("Loading chat history:", response.history);
                 setMessages(response.history);
             }
 
@@ -256,22 +257,54 @@ const QAScreen = ({ route, navigation }) => {
                 messages
             );
 
-            // Add AI response to chat
-            const aiMessage = {
-                id: response.id || (Date.now() + 1).toString(),
-                content: response.answer,
-                role: "assistant",
-                timestamp: response.timestamp || new Date().toISOString(),
-                isOffline: response.isOffline,
-            };
-            setMessages((prev) => [...prev, aiMessage]);
+            // Check if response contains history with the AI's answer
+            if (response.history && response.history.length > 0) {
+                // The backend returns the full conversation history including the new AI response
+                // The last message in the history array should be the AI's response
+                const aiResponse =
+                    response.history[response.history.length - 1];
 
-            // Track answer received
-            if (!response.isOffline) {
-                await analytics.trackAnswerReceived(
-                    videoId,
-                    questionData,
-                    response.answer
+                // Only add the AI response if it's not already in our messages
+                // and it's from the model/assistant
+                if (
+                    aiResponse &&
+                    (aiResponse.role === "model" ||
+                        aiResponse.role === "assistant")
+                ) {
+                    const aiMessage = {
+                        id:
+                            aiResponse.id ||
+                            response.id ||
+                            (Date.now() + 1).toString(),
+                        content: aiResponse.content,
+                        // Normalize role to "assistant" for consistent rendering
+                        role: "assistant",
+                        timestamp:
+                            aiResponse.timestamp || new Date().toISOString(),
+                        isOffline: response.isOffline,
+                    };
+
+                    console.log("Adding AI response to chat:", aiMessage);
+                    setMessages((prev) => [...prev, aiMessage]);
+
+                    // Track answer received
+                    if (!response.isOffline) {
+                        await analytics.trackAnswerReceived(
+                            videoId,
+                            questionData,
+                            aiResponse.content
+                        );
+                    }
+                } else {
+                    console.warn(
+                        "No valid AI response found in history:",
+                        response.history
+                    );
+                }
+            } else {
+                console.warn(
+                    "Response does not contain history with AI answer:",
+                    response
                 );
             }
         } catch (error) {
@@ -298,38 +331,43 @@ const QAScreen = ({ route, navigation }) => {
     };
 
     // Render message item
-    const renderMessage = ({ item }) => (
-        <TouchableOpacity
-            style={[
-                styles.messageContainer,
-                item.role === "user" ? styles.userMessage : styles.aiMessage,
-                item.isOffline && styles.offlineMessage,
-            ]}
-            onLongPress={() => handleCopyMessage(item.content)}
-        >
-            <Text
+    const renderMessage = ({ item }) => {
+        // Determine if this is a user message
+        const isUserMessage = item.role === "user";
+
+        return (
+            <TouchableOpacity
                 style={[
-                    styles.messageText,
-                    item.role === "user" && styles.userMessageText,
+                    styles.messageContainer,
+                    isUserMessage ? styles.userMessage : styles.aiMessage,
+                    item.isOffline && styles.offlineMessage,
                 ]}
+                onLongPress={() => handleCopyMessage(item.content)}
             >
-                {item.content}
-            </Text>
-            {item.isOffline && (
-                <View style={styles.offlineIndicator}>
-                    <Ionicons
-                        name="cloud-offline-outline"
-                        size={16}
-                        color={COLORS.error}
-                    />
-                    <Text style={styles.offlineText}>Offline</Text>
-                </View>
-            )}
-            <Text style={styles.timestamp}>
-                {formatDateWithTimeZone(item.timestamp)}
-            </Text>
-        </TouchableOpacity>
-    );
+                <Text
+                    style={[
+                        styles.messageText,
+                        isUserMessage && styles.userMessageText,
+                    ]}
+                >
+                    {item.content}
+                </Text>
+                {item.isOffline && (
+                    <View style={styles.offlineIndicator}>
+                        <Ionicons
+                            name="cloud-offline-outline"
+                            size={16}
+                            color={COLORS.error}
+                        />
+                        <Text style={styles.offlineText}>Offline</Text>
+                    </View>
+                )}
+                <Text style={styles.timestamp}>
+                    {formatDateWithTimeZone(item.timestamp)}
+                </Text>
+            </TouchableOpacity>
+        );
+    };
 
     // Render loading indicator
     const renderLoading = () => (
@@ -430,15 +468,21 @@ const QAScreen = ({ route, navigation }) => {
                 </View>
 
                 <View style={{ flex: 1 }}>
+                    {console.log("Rendering FlatList with messages:", messages)}
                     <FlatList
                         ref={flatListRef}
                         data={messages}
                         renderItem={renderMessage}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.messageList}
-                        onContentSizeChange={() =>
-                            flatListRef.current?.scrollToEnd()
+                        keyExtractor={(item) =>
+                            item.id || Date.now().toString()
                         }
+                        contentContainerStyle={styles.messageList}
+                        onContentSizeChange={() => {
+                            console.log(
+                                "Content size changed, scrolling to end"
+                            );
+                            flatListRef.current?.scrollToEnd();
+                        }}
                         ListEmptyComponent={
                             <View style={styles.emptyContainer}>
                                 <Text style={styles.emptyText}>
