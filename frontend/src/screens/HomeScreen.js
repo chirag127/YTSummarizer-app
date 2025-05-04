@@ -487,6 +487,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         fontSize: FONT_SIZES.md,
         backgroundColor: COLORS.surface,
+        color: COLORS.text,
     },
     inputError: {
         borderColor: COLORS.error,

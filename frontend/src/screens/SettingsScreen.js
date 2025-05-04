@@ -48,7 +48,6 @@ import * as storageService from "../services/storageService";
 import * as cacheService from "../services/cacheService";
 import * as queueService from "../services/queueService";
 import * as syncService from "../services/syncService";
-import { formatDateWithOptions } from "../utils";
 
 const SettingsScreen = () => {
     // State
@@ -551,10 +550,9 @@ const SettingsScreen = () => {
                     <View style={styles.timeZoneRow}>
                         <Text style={styles.timeZoneLabel}>Current Time:</Text>
                         <Text style={styles.timeZoneValue}>
-                            {formatDateWithOptions(new Date(), {
-                                timeZone: currentTimeZone,
-                                includeTimeZoneName: true,
-                            })}
+                            {moment()
+                                .tz(currentTimeZone)
+                                .format("MMM D, YYYY h:mm A z")}
                         </Text>
                     </View>
 

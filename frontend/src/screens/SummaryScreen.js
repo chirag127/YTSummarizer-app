@@ -514,10 +514,7 @@ const SummaryScreen = ({ route, navigation }) => {
                                 Created:
                             </Text>
                             <Text style={styles.summaryTypeValue}>
-                                {formatDateWithOptions(summary.created_at, {
-                                    timeZone: getCurrentTimeZone(),
-                                    includeTimeZoneName: true,
-                                })}
+                                {formatDateWithTimeZone(summary.created_at)}
                             </Text>
                         </View>
                         {summary.timeTaken !== undefined && (
@@ -658,12 +655,8 @@ const SummaryScreen = ({ route, navigation }) => {
                                             <Text
                                                 style={styles.otherSummaryDate}
                                             >
-                                                {formatDateWithOptions(
-                                                    item.created_at,
-                                                    {
-                                                        timeZone:
-                                                            getCurrentTimeZone(),
-                                                    }
+                                                {formatDateWithTimeZone(
+                                                    item.created_at
                                                 )}
                                             </Text>
                                         </View>

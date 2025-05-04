@@ -258,9 +258,7 @@ const HistoryScreen = ({ navigation }) => {
                         {item.video_title || "Untitled Video"}
                     </Text>
                     <Text style={styles.summaryDate}>
-                        {formatDateWithOptions(item.created_at, {
-                            timeZone: getCurrentTimeZone(),
-                        })}
+                        {formatDateWithTimeZone(item.created_at)}
                     </Text>
                     <View style={styles.summaryTypeContainer}>
                         <View style={[styles.badge, styles.typeBadge]}>
