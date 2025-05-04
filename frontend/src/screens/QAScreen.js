@@ -15,6 +15,7 @@ import {
     KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Markdown from "react-native-markdown-display";
 import * as Clipboard from "expo-clipboard";
 import NetInfo from "@react-native-community/netinfo";
 
@@ -341,6 +342,7 @@ const QAScreen = ({ route, navigation }) => {
     // Handle copy message
     const handleCopyMessage = async (content) => {
         try {
+            // Copy the raw content (including markdown)
             await Clipboard.setStringAsync(content);
             Alert.alert("Success", "Message copied to clipboard");
         } catch (error) {
@@ -363,14 +365,13 @@ const QAScreen = ({ route, navigation }) => {
                 ]}
                 onLongPress={() => handleCopyMessage(item.content)}
             >
-                <Text
-                    style={[
-                        styles.messageText,
-                        isUserMessage && styles.userMessageText,
-                    ]}
-                >
-                    {item.content}
-                </Text>
+                {isUserMessage ? (
+                    <Text style={[styles.messageText, styles.userMessageText]}>
+                        {item.content}
+                    </Text>
+                ) : (
+                    <Markdown style={markdownStyles}>{item.content}</Markdown>
+                )}
                 {item.isOffline && (
                     <View style={styles.offlineIndicator}>
                         <Ionicons
@@ -776,5 +777,99 @@ const styles = StyleSheet.create({
         fontWeight: "500",
     },
 });
+
+// Define markdown styles
+const markdownStyles = {
+    body: {
+        color: COLORS.text,
+        fontSize: FONT_SIZES.md,
+        lineHeight: 20,
+    },
+    heading1: {
+        fontSize: FONT_SIZES.xl,
+        fontWeight: "bold",
+        marginTop: SPACING.md,
+        marginBottom: SPACING.sm,
+        color: COLORS.text,
+    },
+    heading2: {
+        fontSize: FONT_SIZES.lg,
+        fontWeight: "bold",
+        marginTop: SPACING.md,
+        marginBottom: SPACING.sm,
+        color: COLORS.text,
+    },
+    heading3: {
+        fontSize: FONT_SIZES.md + 2,
+        fontWeight: "bold",
+        marginTop: SPACING.sm,
+        marginBottom: SPACING.xs,
+        color: COLORS.text,
+    },
+    paragraph: {
+        marginBottom: SPACING.sm,
+        color: COLORS.text,
+    },
+    link: {
+        color: COLORS.primary,
+        textDecorationLine: "underline",
+    },
+    blockquote: {
+        borderLeftWidth: 4,
+        borderLeftColor: COLORS.border,
+        paddingLeft: SPACING.md,
+        marginLeft: SPACING.sm,
+        marginVertical: SPACING.sm,
+        opacity: 0.8,
+    },
+    code_block: {
+        backgroundColor: COLORS.surface,
+        padding: SPACING.sm,
+        borderRadius: 4,
+        fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+        fontSize: FONT_SIZES.sm,
+    },
+    code_inline: {
+        backgroundColor: COLORS.surface,
+        padding: 2,
+        borderRadius: 2,
+        fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+        fontSize: FONT_SIZES.sm,
+    },
+    list_item: {
+        flexDirection: "row",
+        marginBottom: SPACING.xs,
+    },
+    bullet_list: {
+        marginBottom: SPACING.sm,
+    },
+    ordered_list: {
+        marginBottom: SPACING.sm,
+    },
+    hr: {
+        backgroundColor: COLORS.border,
+        height: 1,
+        marginVertical: SPACING.md,
+    },
+    table: {
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        borderRadius: 4,
+        marginVertical: SPACING.md,
+    },
+    tr: {
+        flexDirection: "row",
+        borderBottomWidth: 1,
+        borderColor: COLORS.border,
+    },
+    th: {
+        padding: SPACING.sm,
+        fontWeight: "bold",
+        backgroundColor: COLORS.surface,
+    },
+    td: {
+        padding: SPACING.sm,
+    },
+};
 
 export default QAScreen;
