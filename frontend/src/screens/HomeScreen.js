@@ -44,6 +44,7 @@ const HomeScreen = ({ navigation, route }) => {
     // Refs
     const timerRef = useRef(null);
     const abortControllerRef = useRef(null);
+    const startTimeRef = useRef(null); // Add ref for tracking start time
 
     // Function to handle shared text (URLs)
     const handleSharedText = async () => {
@@ -104,6 +105,7 @@ const HomeScreen = ({ navigation, route }) => {
 
         setIsLoading(false);
         setElapsedTime(0);
+        startTimeRef.current = null; // Reset start time ref
     };
 
     // Helper function to process a URL directly
@@ -120,11 +122,13 @@ const HomeScreen = ({ navigation, route }) => {
             // Create a new AbortController
             abortControllerRef.current = new AbortController();
 
-            // Start the timer
-            const startTime = Date.now();
+            // Start the timer using the ref for consistent access
+            startTimeRef.current = Date.now();
             timerRef.current = setInterval(() => {
                 const currentTime = Date.now();
-                const elapsed = Math.floor((currentTime - startTime) / 1000);
+                const elapsed = Math.floor(
+                    (currentTime - startTimeRef.current) / 1000
+                );
                 setElapsedTime(elapsed);
             }, 1000);
 
@@ -139,8 +143,11 @@ const HomeScreen = ({ navigation, route }) => {
                     abortControllerRef.current.signal
                 );
 
-                // Include the time taken in the summary object
-                summary.timeTaken = elapsedTime;
+                // Calculate the elapsed time using the ref for accuracy
+                const timeTaken = Math.floor(
+                    (Date.now() - startTimeRef.current) / 1000
+                );
+                summary.timeTaken = timeTaken > 0 ? timeTaken : 1; // Ensure at least 1 second is shown
 
                 navigation.navigate(SCREENS.SUMMARY, { summary });
             } catch (error) {
@@ -162,9 +169,10 @@ const HomeScreen = ({ navigation, route }) => {
 
                 setIsLoading(false);
                 abortControllerRef.current = null;
+                startTimeRef.current = null; // Reset start time ref
             }
         },
-        [summaryType, summaryLength, navigation, elapsedTime]
+        [summaryType, summaryLength, navigation]
     );
 
     // Load last used settings and check for shared content

@@ -21,7 +21,17 @@ const HomeStack = createNativeStackNavigator();
 // Home stack navigator
 const HomeStackNavigator = () => {
     return (
-        <HomeStack.Navigator>
+        <HomeStack.Navigator
+            screenOptions={{
+                headerStyle: {
+                    backgroundColor: COLORS.background,
+                },
+                headerTintColor: COLORS.text,
+                headerTitleStyle: {
+                    fontWeight: "600",
+                },
+            }}
+        >
             <HomeStack.Screen
                 name={SCREENS.HOME}
                 component={HomeScreen}
@@ -30,7 +40,15 @@ const HomeStackNavigator = () => {
             <HomeStack.Screen
                 name={SCREENS.SUMMARY}
                 component={SummaryScreen}
-                options={{ title: "Summary" }}
+                options={({ route }) => ({
+                    title: route.params?.summary?.video_title || "Summary",
+                    headerTitleContainerStyle: {
+                        width: "70%",
+                    },
+                    headerTitleStyle: {
+                        fontSize: 16,
+                    },
+                })}
             />
         </HomeStack.Navigator>
     );

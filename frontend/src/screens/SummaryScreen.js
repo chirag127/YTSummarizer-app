@@ -12,6 +12,7 @@ import {
     Modal,
     Platform,
     FlatList,
+    SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Markdown from "react-native-markdown-display";
@@ -69,6 +70,25 @@ const SummaryScreen = ({ route, navigation }) => {
     const [otherSummaries, setOtherSummaries] = useState([]);
     const [loadingOtherSummaries, setLoadingOtherSummaries] = useState(false);
     const [showOtherSummaries, setShowOtherSummaries] = useState(false);
+    const [generationStartTime, setGenerationStartTime] = useState(null);
+    const [elapsedTime, setElapsedTime] = useState(0);
+    const timerRef = useRef(null);
+
+    // Handle generation time tracking
+    useEffect(() => {
+        if (isLoading && generationStartTime) {
+            timerRef.current = setInterval(() => {
+                setElapsedTime(
+                    Math.floor((Date.now() - generationStartTime) / 1000)
+                );
+            }, 1000);
+        }
+        return () => {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+            }
+        };
+    }, [isLoading, generationStartTime]);
 
     // TTS highlighting state
     const [currentWord, setCurrentWord] = useState(null);
@@ -310,31 +330,33 @@ const SummaryScreen = ({ route, navigation }) => {
             return;
         }
 
+        // Use a local variable for accurate time tracking
+        const startTime = Date.now();
         setIsLoading(true);
+        setGenerationStartTime(startTime); // Update state for UI timer
 
         try {
-            // This will create a new summary instead of updating the existing one
             const newSummary = await updateSummary(
                 summary.id,
                 selectedType,
                 selectedLength
             );
 
-            // Close modal and update route params with the new summary
+            // Calculate the elapsed time using the local variable for accuracy
+            const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+            newSummary.timeTaken = timeTaken > 0 ? timeTaken : 1; // Ensure at least 1 second is shown
+
             setEditModalVisible(false);
 
-            // Refresh other summaries list to include the original summary
+            // Refresh other summaries list
             if (newSummary.id !== summary.id) {
-                // If we got a new summary (not just the same one returned)
                 const response = await getVideoSummaries(summary.video_url);
-                // Filter out the current (new) summary
                 const filteredSummaries = response.summaries.filter(
                     (s) => s.id !== newSummary.id
                 );
                 setOtherSummaries(filteredSummaries);
             }
 
-            // Navigate to the new summary
             navigation.setParams({ summary: newSummary });
         } catch (error) {
             console.error("Error creating new summary:", error);
@@ -344,6 +366,12 @@ const SummaryScreen = ({ route, navigation }) => {
             );
         } finally {
             setIsLoading(false);
+            setGenerationStartTime(null);
+            setElapsedTime(0);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
         }
     };
 
@@ -362,88 +390,133 @@ const SummaryScreen = ({ route, navigation }) => {
                             Create New Summary
                         </Text>
 
-                        <Text style={styles.modalLabel}>Summary Type:</Text>
-                        <View style={styles.optionsButtonGroup}>
-                            {SUMMARY_TYPES.map((type) => (
-                                <TouchableOpacity
-                                    key={type.id}
-                                    style={[
-                                        styles.optionButton,
-                                        selectedType === type.id &&
-                                            styles.optionButtonSelected,
-                                    ]}
-                                    onPress={() => setSelectedType(type.id)}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.optionButtonText,
-                                            selectedType === type.id &&
-                                                styles.optionButtonTextSelected,
-                                        ]}
-                                    >
-                                        {type.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <Text style={styles.modalLabel}>Summary Length:</Text>
-                        <View style={styles.optionsButtonGroup}>
-                            {SUMMARY_LENGTHS.map((length) => (
-                                <TouchableOpacity
-                                    key={length.id}
-                                    style={[
-                                        styles.optionButton,
-                                        selectedLength === length.id &&
-                                            styles.optionButtonSelected,
-                                    ]}
-                                    onPress={() => setSelectedLength(length.id)}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.optionButtonText,
-                                            selectedLength === length.id &&
-                                                styles.optionButtonTextSelected,
-                                        ]}
-                                    >
-                                        {length.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.modalButton,
-                                    styles.modalCancelButton,
-                                ]}
-                                onPress={() => setEditModalVisible(false)}
-                            >
-                                <Text style={styles.modalButtonText}>
-                                    Cancel
+                        {isLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator
+                                    size="small"
+                                    color={COLORS.primary}
+                                />
+                                <Text style={styles.loadingText}>
+                                    Generating summary... {elapsedTime}s
                                 </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[
-                                    styles.modalButton,
-                                    styles.modalSaveButton,
-                                ]}
-                                onPress={handleSaveEdit}
-                                disabled={isLoading}
-                            >
-                                {isLoading ? (
-                                    <ActivityIndicator
-                                        color={COLORS.background}
-                                        size="small"
+                                <TouchableOpacity
+                                    style={styles.cancelButton}
+                                    onPress={() => {
+                                        setIsLoading(false);
+                                        setGenerationStartTime(null);
+                                        setElapsedTime(0);
+                                        if (timerRef.current) {
+                                            clearInterval(timerRef.current);
+                                            timerRef.current = null;
+                                        }
+                                        setEditModalVisible(false);
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="close-circle"
+                                        size={20}
+                                        color={COLORS.error}
                                     />
-                                ) : (
-                                    <Text style={styles.modalButtonText}>
-                                        Create
+                                    <Text style={styles.cancelButtonText}>
+                                        Cancel
                                     </Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <>
+                                <Text style={styles.modalLabel}>
+                                    Summary Type:
+                                </Text>
+                                <View style={styles.optionsButtonGroup}>
+                                    {SUMMARY_TYPES.map((type) => (
+                                        <TouchableOpacity
+                                            key={type.id}
+                                            style={[
+                                                styles.optionButton,
+                                                selectedType === type.id &&
+                                                    styles.optionButtonSelected,
+                                            ]}
+                                            onPress={() =>
+                                                setSelectedType(type.id)
+                                            }
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.optionButtonText,
+                                                    selectedType === type.id &&
+                                                        styles.optionButtonTextSelected,
+                                                ]}
+                                            >
+                                                {type.label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <Text style={styles.modalLabel}>
+                                    Summary Length:
+                                </Text>
+                                <View style={styles.optionsButtonGroup}>
+                                    {SUMMARY_LENGTHS.map((length) => (
+                                        <TouchableOpacity
+                                            key={length.id}
+                                            style={[
+                                                styles.optionButton,
+                                                selectedLength === length.id &&
+                                                    styles.optionButtonSelected,
+                                            ]}
+                                            onPress={() =>
+                                                setSelectedLength(length.id)
+                                            }
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.optionButtonText,
+                                                    selectedLength ===
+                                                        length.id &&
+                                                        styles.optionButtonTextSelected,
+                                                ]}
+                                            >
+                                                {length.label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <View style={styles.modalButtons}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.modalButton,
+                                            styles.modalCancelButton,
+                                        ]}
+                                        onPress={() =>
+                                            setEditModalVisible(false)
+                                        }
+                                    >
+                                        <Text style={styles.modalButtonText}>
+                                            Cancel
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.modalButton,
+                                            styles.modalSaveButton,
+                                        ]}
+                                        onPress={handleSaveEdit}
+                                        disabled={isLoading}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.modalButtonText,
+                                                styles.modalSaveButtonText,
+                                            ]}
+                                        >
+                                            Create
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
                     </View>
                 </View>
             </Modal>
@@ -460,7 +533,7 @@ const SummaryScreen = ({ route, navigation }) => {
     }
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             {renderEditModal()}
 
             <ScrollView
@@ -816,7 +889,7 @@ const SummaryScreen = ({ route, navigation }) => {
                     <Text style={styles.actionButtonText}>New Type</Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </SafeAreaView>
     );
 };
 
@@ -1032,6 +1105,8 @@ const styles = StyleSheet.create({
     modalCancelButton: {
         backgroundColor: COLORS.surface,
         marginRight: SPACING.sm,
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     modalSaveButton: {
         backgroundColor: COLORS.primary,
@@ -1040,7 +1115,30 @@ const styles = StyleSheet.create({
     modalButtonText: {
         fontSize: FONT_SIZES.md,
         fontWeight: "600",
+        color: COLORS.text,
+    },
+    modalSaveButtonText: {
         color: COLORS.background,
+    },
+    loadingContainer: {
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: SPACING.md,
+    },
+    loadingText: {
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.textSecondary,
+        marginTop: SPACING.sm,
+    },
+    cancelButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: SPACING.md,
+    },
+    cancelButtonText: {
+        fontSize: FONT_SIZES.sm,
+        color: COLORS.error,
+        marginLeft: SPACING.xs,
     },
     // Other summaries styles
     otherSummariesContainer: {

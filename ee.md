@@ -56,10 +56,7 @@ Implements proper error handling and loading states
 
 The app focuses on providing a seamless user experience with intuitive navigation, clean interface, and robust functionality across all supported platforms.
 
-give me a prd for the 7. Offline Capabilities feature, including the following:
-Offline mode: Allow users to access previously generated summaries without internet
-Queue system: Queue summary requests when offline to process when back online
-Local caching: Improve caching of video metadata and summaries
+give me a prd for the features AI-powered Q&A: Allow users to ask specific questions about the video content
 
 
 this prd will also include the implementation details and THE prd so,this prd is not for mvp it is for the final product, do not leave anything for the Future Enhancement.
