@@ -103,7 +103,8 @@ const QAScreen = ({ route, navigation }) => {
     const [questionData, setQuestionData] = useState(null);
     const [error, setError] = useState(null);
     const [isRetrying, setIsRetrying] = useState(false);
-    const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+    const [tokenCount, setTokenCount] = useState(0); // Store the total token count
+    const [transcriptTokenCount, setTranscriptTokenCount] = useState(0); // Store the transcript token count
 
     // TTS state
     const [isPlayingTTS, setIsPlayingTTS] = useState(false);
@@ -128,6 +129,20 @@ const QAScreen = ({ route, navigation }) => {
             const response = await getVideoQAHistory(videoId, forceTranscript);
             if (response.history) {
                 setMessages(response.history);
+            }
+
+            // Extract token counts from response
+            if (response.token_count !== undefined) {
+                setTokenCount(response.token_count);
+                console.log("Total token count:", response.token_count);
+            }
+
+            if (response.transcript_token_count !== undefined) {
+                setTranscriptTokenCount(response.transcript_token_count);
+                console.log(
+                    "Transcript token count:",
+                    response.transcript_token_count
+                );
             }
 
             // Always set transcript to available for testing
@@ -424,6 +439,20 @@ const QAScreen = ({ route, navigation }) => {
                 messages
             );
 
+            // Extract token counts from response
+            if (response.token_count !== undefined) {
+                setTokenCount(response.token_count);
+                console.log("Updated total token count:", response.token_count);
+            }
+
+            if (response.transcript_token_count !== undefined) {
+                setTranscriptTokenCount(response.transcript_token_count);
+                console.log(
+                    "Updated transcript token count:",
+                    response.transcript_token_count
+                );
+            }
+
             // Check if response contains history with the AI's answer
             if (response.history && response.history.length > 0) {
                 // The backend returns the full conversation history including the new AI response
@@ -567,30 +596,6 @@ const QAScreen = ({ route, navigation }) => {
             setSpeakingMessageId(null);
             setCurrentWord(null);
         }
-    };
-
-    // Show analytics metrics
-    const showAnalytics = () => {
-        const metrics = analytics.getAnalyticsMetrics();
-
-        Alert.alert(
-            "Q&A Analytics Metrics",
-            `Average Session Length: ${metrics.avgSessionLength.toFixed(
-                2
-            )} turns\n` +
-                `"Cannot Answer" Rate: ${metrics.cannotAnswerRate.toFixed(
-                    2
-                )}%\n` +
-                `Total Sessions: ${metrics.totalSessions}\n` +
-                `Total Answers: ${metrics.totalAnswers}\n` +
-                `"Cannot Answer" Count: ${metrics.cannotAnswerCount}\n` +
-                `Average Response Time: ${(
-                    metrics.avgResponseTime / 1000
-                ).toFixed(2)} seconds`,
-            [{ text: "OK", onPress: () => setShowAnalyticsModal(false) }]
-        );
-
-        setShowAnalyticsModal(true);
     };
 
     // Render message item
@@ -802,19 +807,31 @@ const QAScreen = ({ route, navigation }) => {
                         }}
                         style={styles.thumbnail}
                     />
-                    <TouchableOpacity
-                        style={styles.analyticsButton}
-                        onPress={showAnalytics}
-                    >
-                        <Ionicons
-                            name="analytics-outline"
-                            size={20}
-                            color={COLORS.primary}
-                        />
-                        <Text style={styles.analyticsButtonText}>
-                            Analytics
-                        </Text>
-                    </TouchableOpacity>
+                    <View style={styles.headerButtons}>
+                        <View style={styles.tokenCountsContainer}>
+                            <View style={styles.tokenCountContainer}>
+                                <Ionicons
+                                    name="document-text-outline"
+                                    size={14}
+                                    color={COLORS.textSecondary}
+                                />
+                                <Text style={styles.tokenCountText}>
+                                    Transcript:{" "}
+                                    {transcriptTokenCount.toLocaleString()}
+                                </Text>
+                            </View>
+                            <View style={styles.tokenCountContainer}>
+                                <Ionicons
+                                    name="chatbubble-outline"
+                                    size={14}
+                                    color={COLORS.textSecondary}
+                                />
+                                <Text style={styles.tokenCountText}>
+                                    Total: {tokenCount.toLocaleString()}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
                 </View>
                 <Text style={styles.videoTitle} numberOfLines={2}>
                     {videoTitle}
@@ -946,26 +963,41 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.sm,
     },
     thumbnail: {
-        width: "80%",
+        width: "70%",
         height: 100,
         borderRadius: 8,
     },
-    analyticsButton: {
+    headerButtons: {
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        width: "30%",
+    },
+    tokenCountsContainer: {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: SPACING.sm,
+        width: "100%",
+    },
+    tokenCountContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "flex-start",
+        padding: SPACING.xs,
         borderRadius: 8,
         backgroundColor: COLORS.surface,
         borderWidth: 1,
-        borderColor: COLORS.primary,
+        borderColor: COLORS.border,
+        marginBottom: SPACING.xs,
         marginLeft: SPACING.sm,
+        width: "100%",
     },
-    analyticsButtonText: {
+    tokenCountText: {
         fontSize: FONT_SIZES.xs,
-        color: COLORS.primary,
-        marginTop: SPACING.xs,
+        color: COLORS.textSecondary,
+        marginLeft: SPACING.xs,
     },
+
     videoTitle: {
         fontSize: FONT_SIZES.md,
         fontWeight: "500",

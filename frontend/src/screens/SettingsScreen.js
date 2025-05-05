@@ -48,6 +48,7 @@ import * as storageService from "../services/storageService";
 import * as cacheService from "../services/cacheService";
 import * as queueService from "../services/queueService";
 import * as syncService from "../services/syncService";
+import * as analytics from "../services/analytics";
 
 const SettingsScreen = () => {
     // State
@@ -191,6 +192,54 @@ const SettingsScreen = () => {
     const handleVoiceChange = (voice) => {
         setSettings((prev) => ({ ...prev, voice }));
         saveSettings({ ...settings, voice });
+    };
+
+    // Show analytics metrics
+    const showAnalytics = () => {
+        const metrics = analytics.getAnalyticsMetrics();
+
+        Alert.alert(
+            "Q&A Analytics Metrics",
+            `Average Session Length: ${metrics.avgSessionLength.toFixed(
+                2
+            )} turns\n` +
+                `"Cannot Answer" Rate: ${metrics.cannotAnswerRate.toFixed(
+                    2
+                )}%\n` +
+                `Total Sessions: ${metrics.totalSessions}\n` +
+                `Total Answers: ${metrics.totalAnswers}\n` +
+                `"Cannot Answer" Count: ${metrics.cannotAnswerCount}\n` +
+                `Average Response Time: ${(
+                    metrics.avgResponseTime / 1000
+                ).toFixed(2)} seconds`,
+            [{ text: "OK" }]
+        );
+    };
+
+    // Render analytics section
+    const renderAnalyticsSection = () => {
+        return (
+            <View style={styles.settingSection}>
+                <Text style={styles.settingTitle}>Analytics</Text>
+                <Text style={styles.settingDescription}>
+                    View analytics data for Q&A interactions
+                </Text>
+
+                <TouchableOpacity
+                    style={styles.analyticsButton}
+                    onPress={showAnalytics}
+                >
+                    <Ionicons
+                        name="analytics-outline"
+                        size={20}
+                        color={COLORS.background}
+                    />
+                    <Text style={styles.analyticsButtonText}>
+                        View Q&A Analytics
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        );
     };
 
     // Save settings
@@ -1364,6 +1413,7 @@ const SettingsScreen = () => {
                 {renderNetworkStatusSection()}
                 {renderOfflineDataSection()}
                 {renderApiKeySection()}
+                {renderAnalyticsSection()}
 
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionHeaderText}>
@@ -1807,6 +1857,22 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         backgroundColor: COLORS.disabled,
+    },
+    analyticsButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: COLORS.primary,
+        paddingVertical: SPACING.md,
+        paddingHorizontal: SPACING.lg,
+        borderRadius: 8,
+        alignSelf: "center",
+    },
+    analyticsButtonText: {
+        color: COLORS.background,
+        fontSize: FONT_SIZES.md,
+        fontWeight: "600",
+        marginLeft: SPACING.sm,
     },
     // Time Zone styles
     timeZoneContainer: {

@@ -17,7 +17,6 @@ from bson import ObjectId
 import random
 import cache  # Import our cache module
 import token_management  # Import our token management module
-import rag  # Import our RAG module
 
 # Install tiktoken if not already installed
 try:
@@ -28,16 +27,6 @@ except ImportError:
     logger = logging.getLogger(__name__)
     logger.info("Installing tiktoken package for token counting...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "tiktoken"])
-
-# Install sentence-transformers if not already installed
-try:
-    import sentence_transformers
-except ImportError:
-    import subprocess
-    import sys
-    logger = logging.getLogger(__name__)
-    logger.info("Installing sentence-transformers package for RAG...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "sentence-transformers"])
 
 # Load environment variables
 load_dotenv()
@@ -183,6 +172,8 @@ class VideoQAResponse(BaseModel):
     video_thumbnail_url: Optional[str] = None
     history: List[ChatMessage]
     has_transcript: bool
+    token_count: Optional[int] = None
+    transcript_token_count: Optional[int] = None
 
 # Helper functions
 def is_valid_youtube_url(url: str) -> bool:
@@ -627,7 +618,7 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
         return "API key not configured. Unable to generate answer."
 
     try:
-        # Convert history to the format expected by token_management and RAG
+        # Convert history to the format expected by token_management
         history_for_token_mgmt = []
         if history:
             for msg in history:
@@ -636,26 +627,13 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
                     "content": msg.content
                 })
 
-        # Check if we should use RAG for this transcript
-        use_rag = rag.should_use_rag(transcript)
+        # Apply standard token management to transcript
+        logger.info("Using standard token management for transcript")
+        managed_transcript, managed_history = token_management.prepare_for_model(transcript, question, history_for_token_mgmt)
 
-        if use_rag:
-            # Use RAG to get relevant transcript chunks
-            logger.info("Using RAG for long transcript")
-            managed_transcript = rag.prepare_rag_context(transcript, question, history_for_token_mgmt)
-
-            # Log RAG results
-            logger.info(f"Original transcript length: {token_management.count_tokens(transcript)} tokens")
-            logger.info(f"RAG context length: {token_management.count_tokens(managed_transcript)} tokens")
-            logger.info(f"Reduction: {token_management.count_tokens(transcript) - token_management.count_tokens(managed_transcript)} tokens")
-        else:
-            # Apply standard token management to transcript
-            logger.info("Using standard token management for transcript")
-            managed_transcript, _ = token_management.prepare_for_model(transcript, question, [])
-
-            # Log token management results
-            logger.info(f"Original transcript length: {token_management.count_tokens(transcript)} tokens")
-            logger.info(f"Managed transcript length: {token_management.count_tokens(managed_transcript)} tokens")
+        # Log token management results
+        logger.info(f"Original transcript length: {token_management.count_tokens(transcript)} tokens")
+        logger.info(f"Managed transcript length: {token_management.count_tokens(managed_transcript)} tokens")
 
         # Apply token management to history
         managed_history, _ = token_management.manage_history_tokens(history_for_token_mgmt, question)
@@ -683,14 +661,6 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
         5. If asked about timestamps or specific moments in the video, try to identify them from context clues in the transcript if possible.
         6. Format your responses in a clear, readable way using Markdown when appropriate.
         """
-
-        # Add RAG-specific instructions if using RAG
-        if use_rag:
-            system_prompt += """
-            NOTE: The transcript has been processed using Retrieval Augmented Generation (RAG) to extract the most relevant sections for your question.
-            Each section includes a relevance score indicating how closely it matches your question.
-            Focus on the sections with the highest relevance scores.
-            """
 
         system_prompt += f"""
         TRANSCRIPT:
@@ -1269,23 +1239,61 @@ async def get_video_qa_history(video_id: str, db=Depends(get_database), force_tr
             has_transcript = True
             logger.warning(f"Forcing transcript availability for video ID: {video_id}")
 
+            # Get transcript token count if available
+            transcript_token_count = 0
+            if video_url:
+                video_info = await extract_video_info(video_url)
+                if video_info.get('transcript'):
+                    transcript_token_count = token_management.count_tokens(video_info.get('transcript', ''))
+                    logger.info(f"Transcript token count for video ID {video_id}: {transcript_token_count}")
+
             return VideoQAResponse(
                 video_id=video_id,
                 video_title=video_title,
                 video_thumbnail_url=video_thumbnail_url,
                 history=[],
-                has_transcript=has_transcript
+                has_transcript=has_transcript,
+                token_count=0,  # No tokens used yet for a new conversation
+                transcript_token_count=transcript_token_count
             )
 
         # Convert the history to ChatMessage objects
         history = [ChatMessage(**msg) for msg in chat.get("history", [])]
+
+        # Get transcript token count if not already stored
+        transcript_token_count = chat.get("transcript_token_count", 0)
+        if transcript_token_count == 0:
+            # Try to get the transcript and count tokens
+            video_url = None
+            if chat.get("video_url"):
+                video_url = chat.get("video_url")
+            else:
+                # Try to construct URL from video_id
+                video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+            # Get transcript and count tokens
+            try:
+                video_info = await extract_video_info(video_url)
+                if video_info.get('transcript'):
+                    transcript_token_count = token_management.count_tokens(video_info.get('transcript', ''))
+                    logger.info(f"Transcript token count for video ID {video_id}: {transcript_token_count}")
+
+                    # Update the database with the transcript token count
+                    await db.video_chats.update_one(
+                        {"videoId": video_id},
+                        {"$set": {"transcript_token_count": transcript_token_count}}
+                    )
+            except Exception as e:
+                logger.error(f"Error getting transcript token count: {e}")
 
         return VideoQAResponse(
             video_id=video_id,
             video_title=chat.get("video_title"),
             video_thumbnail_url=chat.get("video_thumbnail_url"),
             history=history,
-            has_transcript=True
+            has_transcript=True,
+            token_count=chat.get("token_count", 0),  # Include token count from database
+            transcript_token_count=transcript_token_count
         )
     except Exception as e:
         logger.error(f"Error retrieving chat history: {e}")
@@ -1371,7 +1379,8 @@ async def ask_video_question(
                     "$set": {
                         "history": [msg.model_dump() for msg in history],
                         "updatedAt": now,
-                        "token_count": total_tokens  # Store token count for monitoring
+                        "token_count": total_tokens,  # Store token count for monitoring
+                        "transcript_token_count": transcript_tokens  # Store transcript token count
                     }
                 }
             )
@@ -1381,10 +1390,12 @@ async def ask_video_question(
                 "videoId": video_id,
                 "video_title": video_info.get('title'),
                 "video_thumbnail_url": video_info.get('thumbnail'),
+                "video_url": video_url,  # Store the video URL for future reference
                 "history": [msg.model_dump() for msg in history],
                 "createdAt": now,
                 "updatedAt": now,
-                "token_count": total_tokens  # Store token count for monitoring
+                "token_count": total_tokens,  # Store token count for monitoring
+                "transcript_token_count": transcript_tokens  # Store transcript token count
             })
 
         # Return response
@@ -1393,7 +1404,9 @@ async def ask_video_question(
             video_title=video_info.get('title'),
             video_thumbnail_url=video_info.get('thumbnail'),
             history=history,
-            has_transcript=True
+            has_transcript=True,
+            token_count=total_tokens,  # Include the calculated token count
+            transcript_token_count=transcript_tokens  # Include the transcript token count
         )
     except Exception as e:
         logger.error(f"Error processing question: {e}")
