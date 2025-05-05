@@ -7,4 +7,5 @@ yt-dlp
 python-multipart
 requests
 google-genai
-redis>=4.2.0
+redis
+tiktoken

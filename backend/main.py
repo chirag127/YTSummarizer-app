@@ -15,7 +15,18 @@ from dotenv import load_dotenv
 import logging
 from bson import ObjectId
 import random
-import cache  # Import our new cache module
+import cache  # Import our cache module
+import token_management  # Import our token management module
+
+# Install tiktoken if not already installed
+try:
+    import tiktoken
+except ImportError:
+    import subprocess
+    import sys
+    logger = logging.getLogger(__name__)
+    logger.info("Installing tiktoken package for token counting...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "tiktoken"])
 
 # Load environment variables
 load_dotenv()
@@ -592,6 +603,28 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
         return "API key not configured. Unable to generate answer."
 
     try:
+        # Convert history to the format expected by token_management
+        history_for_token_mgmt = []
+        if history:
+            for msg in history:
+                history_for_token_mgmt.append({
+                    "role": "user" if msg.role == ChatMessageRole.USER else "model",
+                    "content": msg.content
+                })
+
+        # Apply token management to transcript and history
+        managed_transcript, managed_history = token_management.prepare_for_model(
+            transcript,
+            question,
+            history_for_token_mgmt
+        )
+
+        # Log token management results
+        logger.info(f"Original transcript length: {token_management.count_tokens(transcript)} tokens")
+        logger.info(f"Managed transcript length: {token_management.count_tokens(managed_transcript)} tokens")
+        logger.info(f"Original history length: {len(history) if history else 0} messages")
+        logger.info(f"Managed history length: {len(managed_history)} messages")
+
         # Create Gemini client with the appropriate API key
         client = google.genai.Client(api_key=api_key)
         model = "gemini-2.5-flash-preview-04-17"
@@ -612,16 +645,14 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
         6. Format your responses in a clear, readable way using Markdown when appropriate.
 
         TRANSCRIPT:
-        {transcript}
+        {managed_transcript}
         """
 
         contents.append(types.Content(role="user", parts=[types.Part.from_text(text=system_prompt)]))
 
-        # Add previous conversation history if available
-        if history:
-            for msg in history:
-                role = "user" if msg.role == ChatMessageRole.USER else "model"
-                contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg.content)]))
+        # Add managed conversation history
+        for msg in managed_history:
+            contents.append(types.Content(role=msg["role"], parts=[types.Part.from_text(text=msg["content"])]))
 
         # Add the current question
         contents.append(types.Content(role="user", parts=[types.Part.from_text(text=question)]))
@@ -1216,22 +1247,17 @@ async def ask_video_question(
     video_id: str,
     qa_request: VideoQARequest,
     db=Depends(get_database),
-    x_user_api_key: str = None,
-    force_transcript: bool = False
+    x_user_api_key: str = None
 ):
     """Ask a question about a video and get an AI-generated answer."""
     try:
         # Get video URL from video ID
         video_url = None
-        video_title = None
-        video_thumbnail_url = None
 
         # Try to find a summary for this video to get the URL
         summary = await db.summaries.find_one({"video_url": {"$regex": video_id}})
         if summary:
             video_url = summary.get("video_url")
-            video_title = summary.get("video_title")
-            video_thumbnail_url = summary.get("video_thumbnail_url")
 
         # If no URL found, try to construct one
         if not video_url:
@@ -1240,7 +1266,7 @@ async def ask_video_question(
         # Extract video information to get transcript
         video_info = await extract_video_info(video_url)
 
-        # Always enable transcript for testing
+        # Check if transcript is available
         if not video_info.get('transcript'):
             logger.warning(f"No transcript found for video ID: {video_id}, but enabling Q&A anyway")
             video_info['transcript'] = "This is a placeholder transcript to enable Q&A functionality."
@@ -1258,11 +1284,18 @@ async def ask_video_question(
             # Use history from request if provided
             history = qa_request.history
 
+        # Log token usage before adding new question
+        transcript_tokens = token_management.count_tokens(video_info.get('transcript', ''))
+        question_tokens = token_management.count_tokens(qa_request.question)
+        history_tokens = sum(token_management.count_tokens(msg.content) for msg in history) if history else 0
+
+        logger.info(f"Token usage before processing - Transcript: {transcript_tokens}, Question: {question_tokens}, History: {history_tokens}")
+
         # Add the new question to history
         user_message = ChatMessage(role=ChatMessageRole.USER, content=qa_request.question)
         history.append(user_message)
 
-        # Generate answer using Gemini
+        # Generate answer using Gemini with token management
         answer = await generate_qa_response(
             video_info.get('transcript'),
             qa_request.question,
@@ -1274,6 +1307,10 @@ async def ask_video_question(
         model_message = ChatMessage(role=ChatMessageRole.MODEL, content=answer)
         history.append(model_message)
 
+        # Log token usage after adding new answer
+        total_tokens = transcript_tokens + question_tokens + history_tokens + token_management.count_tokens(answer)
+        logger.info(f"Total token usage after processing: {total_tokens}")
+
         # Update or create chat history in database
         now = get_utc_now()
 
@@ -1284,7 +1321,8 @@ async def ask_video_question(
                 {
                     "$set": {
                         "history": [msg.model_dump() for msg in history],
-                        "updatedAt": now
+                        "updatedAt": now,
+                        "token_count": total_tokens  # Store token count for monitoring
                     }
                 }
             )
@@ -1296,7 +1334,8 @@ async def ask_video_question(
                 "video_thumbnail_url": video_info.get('thumbnail'),
                 "history": [msg.model_dump() for msg in history],
                 "createdAt": now,
-                "updatedAt": now
+                "updatedAt": now,
+                "token_count": total_tokens  # Store token count for monitoring
             })
 
         # Return response
