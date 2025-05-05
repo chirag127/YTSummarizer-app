@@ -119,6 +119,7 @@ class YouTubeURL(BaseModel):
     url: str
     summary_type: str = SummaryType.BRIEF
     summary_length: str = SummaryLength.MEDIUM
+    force_regenerate: bool = False
 
 class Summary(BaseModel):
     id: Optional[str] = None
@@ -852,6 +853,7 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_us
     """Generate summary for a YouTube video and store it.
 
     The user can optionally provide their own Gemini API key via the X-User-API-Key header.
+    The force_regenerate flag can be set to true to force a new summary generation even if one already exists.
     """
     url = str(youtube_url.url)
 
@@ -859,15 +861,17 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_us
         raise HTTPException(status_code=400, detail="Invalid YouTube URL")
 
     # Check if summary already exists with the same URL, type, and length
-    existing_summary = await db.summaries.find_one({
-        "video_url": url,
-        "summary_type": youtube_url.summary_type,
-        "summary_length": youtube_url.summary_length
-    })
-    if existing_summary:
-        # Convert ObjectId to string for response
-        existing_summary["id"] = str(existing_summary.pop("_id"))
-        return SummaryResponse(**existing_summary)
+    # Skip this check if force_regenerate is True
+    if not youtube_url.force_regenerate:
+        existing_summary = await db.summaries.find_one({
+            "video_url": url,
+            "summary_type": youtube_url.summary_type,
+            "summary_length": youtube_url.summary_length
+        })
+        if existing_summary:
+            # Convert ObjectId to string for response
+            existing_summary["id"] = str(existing_summary.pop("_id"))
+            return SummaryResponse(**existing_summary)
 
     # Extract video information
     video_info = await extract_video_info(url)

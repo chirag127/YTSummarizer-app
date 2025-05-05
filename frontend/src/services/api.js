@@ -9,7 +9,6 @@ import { extractVideoId } from "../utils";
 import apiActions from "./apiActions";
 import { API_BASE_URL } from "../constants";
 
-
 // Base URL for API calls - change this to your backend URL
 // const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
 // const API_BASE_URL = "http://192.168.31.232:8000";
@@ -852,6 +851,75 @@ export const askVideoQuestion = async (videoId, question, history = []) => {
     }
 };
 
+// Regenerate a summary with the same parameters but force a new generation
+export const regenerateSummary = async (summaryId, signal) => {
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
+
+    // If offline, return error
+    if (!isNetworkAvailable) {
+        throw new Error(
+            "Cannot regenerate summary while offline. Please try again when you have an internet connection."
+        );
+    }
+
+    try {
+        // First get the existing summary to get its URL and parameters
+        const existingSummary = await getSummaryById(summaryId);
+
+        // Then generate a new summary with the same parameters
+        // We're using the generateSummary function directly with the original URL and parameters
+        // This will bypass the backend's check for existing summaries with the same parameters
+        // because we're making a fresh API call to /generate-summary
+        const response = await api.post(
+            "/generate-summary",
+            {
+                url: existingSummary.video_url,
+                summary_type: existingSummary.summary_type,
+                summary_length: existingSummary.summary_length,
+                force_regenerate: true, // Add a flag to indicate we want to force regeneration
+            },
+            { signal }
+        );
+
+        const summary = response.data;
+
+        // Cache the summary locally
+        await storageService.saveSummary(summary);
+
+        // Cache the thumbnail if available
+        if (summary.video_thumbnail_url) {
+            const videoId = extractVideoId(summary.video_url);
+            const cachedImageUri = await cacheService.cacheImage(
+                summary.video_thumbnail_url,
+                videoId
+            );
+
+            if (cachedImageUri) {
+                // Update the summary with the local thumbnail URI
+                await storageService.updateSummary(videoId, summary.id, {
+                    thumbnailLocalUri: cachedImageUri,
+                });
+            }
+        }
+
+        return summary;
+    } catch (error) {
+        console.error("Error regenerating summary:", error);
+
+        // If there's a network error, provide a clear message
+        if (error.message === "Network Error") {
+            throw new Error(
+                "Network error. Please check your connection and try again."
+            );
+        } else {
+            throw error;
+        }
+    }
+};
+
 export default {
     validateYouTubeUrl,
     generateSummary,
@@ -864,4 +932,5 @@ export default {
     processQueue,
     getVideoQAHistory,
     askVideoQuestion,
+    regenerateSummary,
 };

@@ -23,6 +23,7 @@ import {
     updateSummary,
     toggleStarSummary,
     getVideoSummaries,
+    regenerateSummary,
 } from "../services/api";
 import {
     speakText,
@@ -320,6 +321,60 @@ const SummaryScreen = ({ route, navigation }) => {
         }
     };
 
+    // Handle regenerate - creates a completely new summary with the same parameters
+    const handleRegenerate = async () => {
+        // Create an abort controller for the API request
+        abortControllerRef.current = new AbortController();
+
+        // Use a local variable for accurate time tracking
+        const startTime = Date.now();
+        setIsLoading(true);
+        setGenerationStartTime(startTime); // Update state for UI timer
+
+        try {
+            // Use our new regenerateSummary function to create a completely new summary
+            const newSummary = await regenerateSummary(
+                summary.id,
+                abortControllerRef.current.signal
+            );
+
+            // Calculate the elapsed time using the local variable for accuracy
+            const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+            newSummary.timeTaken = timeTaken > 0 ? timeTaken : 1; // Ensure at least 1 second is shown
+
+            // Refresh other summaries list
+            if (newSummary.id !== summary.id) {
+                const response = await getVideoSummaries(summary.video_url);
+                const filteredSummaries = response.summaries.filter(
+                    (s) => s.id !== newSummary.id
+                );
+                setOtherSummaries(filteredSummaries);
+            }
+
+            navigation.setParams({ summary: newSummary });
+        } catch (error) {
+            console.error("Error regenerating summary:", error);
+
+            // Only show alert if not aborted by user
+            if (error.name !== "AbortError") {
+                Alert.alert(
+                    "Error",
+                    error.response?.data?.detail ||
+                        error.message ||
+                        "Failed to regenerate summary."
+                );
+            }
+        } finally {
+            setIsLoading(false);
+            setGenerationStartTime(null);
+            setElapsedTime(0);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        }
+    };
+
     // Handle save edit - creates a new summary with the selected type and length
     const handleSaveEdit = async () => {
         if (
@@ -529,6 +584,47 @@ const SummaryScreen = ({ route, navigation }) => {
             <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>Summary not found.</Text>
             </View>
+        );
+    }
+
+    // Create a ref for the abort controller
+    const abortControllerRef = useRef(null);
+
+    // Show loading overlay when regenerating
+    if (isLoading && !editModalVisible) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.fullScreenLoadingContainer}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                    <Text style={styles.loadingText}>
+                        Regenerating summary... {elapsedTime}s
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.cancelButton}
+                        onPress={() => {
+                            // Abort the API request if possible
+                            if (abortControllerRef.current) {
+                                abortControllerRef.current.abort();
+                            }
+
+                            setIsLoading(false);
+                            setGenerationStartTime(null);
+                            setElapsedTime(0);
+                            if (timerRef.current) {
+                                clearInterval(timerRef.current);
+                                timerRef.current = null;
+                            }
+                        }}
+                    >
+                        <Ionicons
+                            name="close-circle"
+                            size={20}
+                            color={COLORS.error}
+                        />
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
         );
     }
 
@@ -891,6 +987,23 @@ const SummaryScreen = ({ route, navigation }) => {
 
                 <TouchableOpacity
                     style={styles.actionButton}
+                    onPress={handleRegenerate}
+                    disabled={isLoading}
+                >
+                    <Ionicons
+                        name="refresh-outline"
+                        size={24}
+                        color={
+                            isLoading ? COLORS.textSecondary : COLORS.primary
+                        }
+                    />
+                    <Text style={styles.actionButtonText}>
+                        {isLoading ? "Generating..." : "Regenerate"}
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.actionButton}
                     onPress={() => navigation.navigate("QA", { summary })}
                 >
                     <Ionicons
@@ -1140,6 +1253,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         marginBottom: SPACING.md,
+    },
+    fullScreenLoadingContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: SPACING.lg,
     },
     loadingText: {
         fontSize: FONT_SIZES.sm,
