@@ -110,7 +110,6 @@ const QAScreen = ({ route, navigation }) => {
         try {
             const response = await getVideoQAHistory(videoId, forceTranscript);
             if (response.history) {
-                console.log("Loading chat history:", response.history);
                 setMessages(response.history);
             }
 
