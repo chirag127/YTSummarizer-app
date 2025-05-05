@@ -87,7 +87,6 @@ const QAScreen = ({ route, navigation }) => {
         }
     }
 
-
     const videoTitle = summary ? summary.video_title : "Video Q&A";
     const videoThumbnail = summary ? summary.video_thumbnail_url : null;
 
@@ -117,6 +116,8 @@ const QAScreen = ({ route, navigation }) => {
     const flatListRef = useRef(null);
     const inputRef = useRef(null);
     const messageRefs = useRef({});
+    const sentenceRefs = useRef({});
+    const wordRefs = useRef({});
 
     // Function to load chat history
     const loadChatHistory = async (forceTranscript = false) => {
@@ -293,27 +294,92 @@ const QAScreen = ({ route, navigation }) => {
         };
     }, [messages.length]);
 
-    // Scroll to the current word being spoken
+    // Auto-scrolling to the current word being spoken has been disabled
+    // as per user request to allow manual scrolling during TTS playback
+    /*
     useEffect(() => {
-        if (
-            currentWord &&
-            speakingMessageId &&
-            messageRefs.current[speakingMessageId]
-        ) {
-            // Get the message ref and measure its position
-            messageRefs.current[speakingMessageId].measureLayout(
-                flatListRef.current,
-                (_, y) => {
-                    // Scroll to the position
-                    flatListRef.current.scrollToOffset({
-                        offset: y - 100, // Scroll to position with some padding
-                        animated: true,
-                    });
-                },
-                (error) => console.log("Measurement failed:", error)
-            );
+        if (currentWord && speakingMessageId) {
+            const wordKey = `${speakingMessageId}-${currentWord.sentenceIndex}-${currentWord.wordIndex}`;
+            const sentenceKey = `${speakingMessageId}-${currentWord.sentenceIndex}`;
+
+            // First try to scroll to the highlighted word
+            if (wordRefs.current[wordKey]) {
+                try {
+                    wordRefs.current[wordKey].measureLayout(
+                        flatListRef.current,
+                        (_, y) => {
+                            // Scroll to the word position
+                            flatListRef.current.scrollToOffset({
+                                offset: y - 150, // More padding to show context above the word
+                                animated: true,
+                            });
+                        },
+                        (error) =>
+                            console.log("Word measurement failed:", error)
+                    );
+                    return; // If word scrolling succeeds, don't try sentence or message
+                } catch (error) {
+                    console.log("Error measuring word:", error);
+                    // Fall through to sentence scrolling
+                }
+            }
+
+            // If word scrolling fails, try to scroll to the sentence
+            if (sentenceRefs.current[sentenceKey]) {
+                try {
+                    sentenceRefs.current[sentenceKey].measureLayout(
+                        flatListRef.current,
+                        (_, y) => {
+                            // Scroll to the sentence position
+                            flatListRef.current.scrollToOffset({
+                                offset: y - 120, // Padding to show context
+                                animated: true,
+                            });
+                        },
+                        (error) =>
+                            console.log("Sentence measurement failed:", error)
+                    );
+                    return; // If sentence scrolling succeeds, don't try message
+                } catch (error) {
+                    console.log("Error measuring sentence:", error);
+                    // Fall through to message scrolling
+                }
+            }
+
+            // If all else fails, scroll to the message
+            if (messageRefs.current[speakingMessageId]) {
+                try {
+                    messageRefs.current[speakingMessageId].measureLayout(
+                        flatListRef.current,
+                        (_, y) => {
+                            // Scroll to the message position
+                            flatListRef.current.scrollToOffset({
+                                offset: y - 100, // Scroll to position with some padding
+                                animated: true,
+                            });
+                        },
+                        (error) =>
+                            console.log("Message measurement failed:", error)
+                    );
+                } catch (error) {
+                    console.log("Error measuring message:", error);
+                }
+            }
         }
     }, [currentWord, speakingMessageId]);
+    */
+
+    // Scroll to the end when new messages are added
+    const prevMessagesLengthRef = useRef(messages.length);
+    useEffect(() => {
+        // Only scroll to end when a new message is added (not during initial load)
+        if (messages.length > prevMessagesLengthRef.current && !isInitialLoad) {
+            setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+            }, 100); // Small delay to ensure layout is complete
+        }
+        prevMessagesLengthRef.current = messages.length;
+    }, [messages.length, isInitialLoad]);
 
     // Handle send message
     const handleSend = async () => {
@@ -563,6 +629,11 @@ const QAScreen = ({ route, navigation }) => {
                                 (sentence, sentenceIndex) => (
                                     <View
                                         key={`sentence-${item.id}-${sentenceIndex}`}
+                                        ref={(ref) => {
+                                            sentenceRefs.current[
+                                                `${item.id}-${sentenceIndex}`
+                                            ] = ref;
+                                        }}
                                         style={[
                                             styles.sentenceContainer,
                                             currentSentence === sentenceIndex &&
@@ -587,6 +658,14 @@ const QAScreen = ({ route, navigation }) => {
                                                 return (
                                                     <Text
                                                         key={`word-${item.id}-${sentenceIndex}-${wordIdx}`}
+                                                        ref={(ref) => {
+                                                            if (isHighlighted) {
+                                                                // Store ref for the highlighted word
+                                                                wordRefs.current[
+                                                                    `${item.id}-${sentenceIndex}-${wordIdx}`
+                                                                ] = ref;
+                                                            }
+                                                        }}
                                                         style={[
                                                             styles.word,
                                                             isHighlighted &&
@@ -752,10 +831,12 @@ const QAScreen = ({ route, navigation }) => {
                         item.id || `message-${index}-${Date.now()}`
                     }
                     contentContainerStyle={styles.messageList}
-                    onContentSizeChange={() => {
-                        console.log("Content size changed, scrolling to end");
-                        flatListRef.current?.scrollToEnd();
-                    }}
+                    // Removed automatic scrolling on content size change to prevent
+                    // scrolling when TTS highlighting changes
+                    // onContentSizeChange={() => {
+                    //     console.log("Content size changed, scrolling to end");
+                    //     flatListRef.current?.scrollToEnd();
+                    // }}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <Text style={styles.emptyText}>
