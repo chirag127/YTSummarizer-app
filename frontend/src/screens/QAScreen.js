@@ -97,6 +97,7 @@ const QAScreen = ({ route, navigation }) => {
     const [questionData, setQuestionData] = useState(null);
     const [error, setError] = useState(null);
     const [isRetrying, setIsRetrying] = useState(false);
+    const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
     // Refs
     const flatListRef = useRef(null);
@@ -151,6 +152,9 @@ const QAScreen = ({ route, navigation }) => {
         loadChatHistory(true); // Force transcript to be available
     };
 
+    // Store session data for analytics
+    const [sessionData, setSessionData] = useState(null);
+
     // Set navigation title and load chat history
     useEffect(() => {
         navigation.setOptions({
@@ -162,7 +166,8 @@ const QAScreen = ({ route, navigation }) => {
 
         // Track Q&A session start only if we have a valid videoId
         if (videoId) {
-            analytics.trackQASessionStart(videoId);
+            const data = analytics.trackQASessionStart(videoId);
+            setSessionData(data);
         } else {
             console.log(
                 "Cannot track Q&A session: No valid video ID available"
@@ -180,7 +185,18 @@ const QAScreen = ({ route, navigation }) => {
                     "No valid video ID found. Please try again with a valid YouTube video.",
             });
         }
-    }, [navigation, videoId]);
+
+        // Track session end when component unmounts
+        return () => {
+            if (sessionData) {
+                analytics.trackQASessionEnd(sessionData, messages.length);
+
+                // Log analytics metrics
+                const metrics = analytics.getAnalyticsMetrics();
+                console.log("Q&A Analytics Metrics:", metrics);
+            }
+        };
+    }, [navigation, videoId, messages.length]);
 
     // Monitor network status
     useEffect(() => {
@@ -308,11 +324,16 @@ const QAScreen = ({ route, navigation }) => {
 
                     // Track answer received
                     if (!response.isOffline) {
-                        await analytics.trackAnswerReceived(
+                        const answerData = await analytics.trackAnswerReceived(
                             videoId,
                             questionData,
                             aiResponse.content
                         );
+
+                        // Log if this was a "cannot answer" response
+                        if (answerData && answerData.isCannotAnswer) {
+                            console.log("AI could not answer this question");
+                        }
                     }
                 } else {
                     console.warn(
@@ -350,6 +371,30 @@ const QAScreen = ({ route, navigation }) => {
         }
     };
 
+    // Show analytics metrics
+    const showAnalytics = () => {
+        const metrics = analytics.getAnalyticsMetrics();
+
+        Alert.alert(
+            "Q&A Analytics Metrics",
+            `Average Session Length: ${metrics.avgSessionLength.toFixed(
+                2
+            )} turns\n` +
+                `"Cannot Answer" Rate: ${metrics.cannotAnswerRate.toFixed(
+                    2
+                )}%\n` +
+                `Total Sessions: ${metrics.totalSessions}\n` +
+                `Total Answers: ${metrics.totalAnswers}\n` +
+                `"Cannot Answer" Count: ${metrics.cannotAnswerCount}\n` +
+                `Average Response Time: ${(
+                    metrics.avgResponseTime / 1000
+                ).toFixed(2)} seconds`,
+            [{ text: "OK", onPress: () => setShowAnalyticsModal(false) }]
+        );
+
+        setShowAnalyticsModal(true);
+    };
+
     // Render message item
     const renderMessage = ({ item }) => {
         // Determine if this is a user message
@@ -364,13 +409,19 @@ const QAScreen = ({ route, navigation }) => {
                 ]}
                 onLongPress={() => handleCopyMessage(item.content)}
             >
-                {isUserMessage ? (
-                    <Text style={[styles.messageText, styles.userMessageText]}>
-                        {item.content}
-                    </Text>
-                ) : (
-                    <Markdown style={markdownStyles}>{item.content}</Markdown>
-                )}
+                <View style={styles.messageContentContainer}>
+                    {isUserMessage ? (
+                        <Text
+                            style={[styles.messageText, styles.userMessageText]}
+                        >
+                            {item.content}
+                        </Text>
+                    ) : (
+                        <Markdown style={markdownStyles}>
+                            {item.content}
+                        </Markdown>
+                    )}
+                </View>
                 {item.isOffline && (
                     <View style={styles.offlineIndicator}>
                         <Ionicons
@@ -462,14 +513,29 @@ const QAScreen = ({ route, navigation }) => {
         <SafeAreaView style={styles.container}>
             {/* Video Info Header */}
             <View style={styles.videoInfoContainer}>
-                <Image
-                    source={{
-                        uri:
-                            videoThumbnail ||
-                            "https://via.placeholder.com/480x360?text=No+Thumbnail",
-                    }}
-                    style={styles.thumbnail}
-                />
+                <View style={styles.headerRow}>
+                    <Image
+                        source={{
+                            uri:
+                                videoThumbnail ||
+                                "https://via.placeholder.com/480x360?text=No+Thumbnail",
+                        }}
+                        style={styles.thumbnail}
+                    />
+                    <TouchableOpacity
+                        style={styles.analyticsButton}
+                        onPress={showAnalytics}
+                    >
+                        <Ionicons
+                            name="analytics-outline"
+                            size={20}
+                            color={COLORS.primary}
+                        />
+                        <Text style={styles.analyticsButtonText}>
+                            Analytics
+                        </Text>
+                    </TouchableOpacity>
+                </View>
                 <Text style={styles.videoTitle} numberOfLines={2}>
                     {videoTitle}
                 </Text>
@@ -477,7 +543,6 @@ const QAScreen = ({ route, navigation }) => {
 
             {/* Messages List - Using FlatList directly instead of nesting in ScrollView */}
             <View style={styles.messagesContainer}>
-                {console.log("Rendering FlatList with messages:", messages)}
                 <FlatList
                     ref={flatListRef}
                     data={messages}
@@ -592,11 +657,32 @@ const styles = StyleSheet.create({
         borderBottomColor: COLORS.border,
         backgroundColor: COLORS.surface,
     },
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        marginBottom: SPACING.sm,
+    },
     thumbnail: {
-        width: "100%",
+        width: "80%",
         height: 100,
         borderRadius: 8,
-        marginBottom: SPACING.sm,
+    },
+    analyticsButton: {
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: SPACING.sm,
+        borderRadius: 8,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.primary,
+        marginLeft: SPACING.sm,
+    },
+    analyticsButtonText: {
+        fontSize: FONT_SIZES.xs,
+        color: COLORS.primary,
+        marginTop: SPACING.xs,
     },
     videoTitle: {
         fontSize: FONT_SIZES.md,
@@ -613,6 +699,8 @@ const styles = StyleSheet.create({
         padding: SPACING.md,
         borderRadius: 16,
         marginBottom: SPACING.md,
+        flexShrink: 1,
+        flexDirection: "column",
     },
     userMessage: {
         alignSelf: "flex-end",
@@ -624,10 +712,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: COLORS.border,
     },
+    messageContentContainer: {
+        width: "100%",
+        flexDirection: "column",
+        flexShrink: 1,
+    },
     messageText: {
         fontSize: FONT_SIZES.md,
         color: COLORS.text,
         lineHeight: 20,
+        flexShrink: 1,
+        flexWrap: "wrap",
     },
     userMessageText: {
         color: COLORS.background,
@@ -783,6 +878,9 @@ const markdownStyles = {
         color: COLORS.text,
         fontSize: FONT_SIZES.md,
         lineHeight: 20,
+        flexWrap: "wrap",
+        flexShrink: 1,
+        width: "100%",
     },
     heading1: {
         fontSize: FONT_SIZES.xl,
@@ -790,6 +888,7 @@ const markdownStyles = {
         marginTop: SPACING.md,
         marginBottom: SPACING.sm,
         color: COLORS.text,
+        flexWrap: "wrap",
     },
     heading2: {
         fontSize: FONT_SIZES.lg,
@@ -797,6 +896,7 @@ const markdownStyles = {
         marginTop: SPACING.md,
         marginBottom: SPACING.sm,
         color: COLORS.text,
+        flexWrap: "wrap",
     },
     heading3: {
         fontSize: FONT_SIZES.md + 2,
@@ -804,19 +904,58 @@ const markdownStyles = {
         marginTop: SPACING.sm,
         marginBottom: SPACING.xs,
         color: COLORS.text,
+        flexWrap: "wrap",
     },
     paragraph: {
         marginBottom: SPACING.sm,
         color: COLORS.text,
+        flexWrap: "wrap",
     },
     link: {
         color: COLORS.primary,
         textDecorationLine: "underline",
+        flexWrap: "wrap",
+        overflow: "hidden",
+    },
+    url: {
+        color: COLORS.primary,
+        textDecorationLine: "underline",
+        flexWrap: "wrap",
+        overflow: "hidden",
+    },
+    code_inline: {
+        fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+        backgroundColor: COLORS.border + "40",
+        borderRadius: 4,
+        paddingHorizontal: 4,
+        flexWrap: "wrap",
+        overflow: "hidden",
+    },
+    code_block: {
+        fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+        backgroundColor: COLORS.border + "40",
+        borderRadius: 4,
+        padding: SPACING.sm,
+        marginVertical: SPACING.sm,
+        flexWrap: "wrap",
+        width: "100%",
+        overflow: "hidden",
+    },
+    fence: {
+        fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+        backgroundColor: COLORS.border + "40",
+        borderRadius: 4,
+        padding: SPACING.sm,
+        marginVertical: SPACING.sm,
+        flexWrap: "wrap",
+        width: "100%",
+        overflow: "hidden",
     },
     blockquote: {
         borderLeftWidth: 4,
         borderLeftColor: COLORS.border,
         paddingLeft: SPACING.md,
+        flexWrap: "wrap",
         marginLeft: SPACING.sm,
         marginVertical: SPACING.sm,
         opacity: 0.8,

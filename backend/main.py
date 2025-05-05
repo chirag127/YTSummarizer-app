@@ -80,6 +80,19 @@ async def startup_db_client():
         await client.admin.command('ping')
         logger.info("Connected to MongoDB")
 
+        # Create indexes for video_chats collection
+        db = client[DATABASE_NAME]
+        try:
+            # Create index on videoId field for efficient querying
+            await db.video_chats.create_index("videoId")
+            logger.info("Created index on videoId field in video_chats collection")
+
+            # Create index on userId field for future user account integration
+            await db.video_chats.create_index("userId")
+            logger.info("Created index on userId field in video_chats collection")
+        except Exception as index_error:
+            logger.error(f"Error creating indexes for video_chats collection: {index_error}")
+
         # Initialize Redis cache
         await cache.init_redis()
     except Exception as e:

@@ -1,3 +1,15 @@
+The chat reply are going out of the box of the chat reply box like it is overflowing out of the chat reply box When the chat reply is bigger than something  most probably
+
+
+
+
+
+
+
+
+
+
+
 Missing or Incomplete Requirements
 RAG Implementation for Long Transcripts: The PRD specifies that RAG (Retrieval Augmented Generation) should be implemented for handling long transcripts, but I couldn't find explicit evidence of this in the codebase. The current implementation appears to pass the entire transcript to the Gemini model, which may not work well for very long videos.
 Token Management: While the conversation history is maintained and passed to the Gemini model, there doesn't appear to be explicit token counting or management to ensure the context window isn't exceeded.
