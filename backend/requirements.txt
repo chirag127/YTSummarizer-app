@@ -9,3 +9,5 @@ requests
 google-genai
 redis
 tiktoken
+sentence-transformers
+numpy

@@ -17,6 +17,7 @@ from bson import ObjectId
 import random
 import cache  # Import our cache module
 import token_management  # Import our token management module
+import rag  # Import our RAG module
 
 # Install tiktoken if not already installed
 try:
@@ -27,6 +28,16 @@ except ImportError:
     logger = logging.getLogger(__name__)
     logger.info("Installing tiktoken package for token counting...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "tiktoken"])
+
+# Install sentence-transformers if not already installed
+try:
+    import sentence_transformers
+except ImportError:
+    import subprocess
+    import sys
+    logger = logging.getLogger(__name__)
+    logger.info("Installing sentence-transformers package for RAG...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "sentence-transformers"])
 
 # Load environment variables
 load_dotenv()
@@ -603,7 +614,7 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
         return "API key not configured. Unable to generate answer."
 
     try:
-        # Convert history to the format expected by token_management
+        # Convert history to the format expected by token_management and RAG
         history_for_token_mgmt = []
         if history:
             for msg in history:
@@ -612,16 +623,31 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
                     "content": msg.content
                 })
 
-        # Apply token management to transcript and history
-        managed_transcript, managed_history = token_management.prepare_for_model(
-            transcript,
-            question,
-            history_for_token_mgmt
-        )
+        # Check if we should use RAG for this transcript
+        use_rag = rag.should_use_rag(transcript)
 
-        # Log token management results
-        logger.info(f"Original transcript length: {token_management.count_tokens(transcript)} tokens")
-        logger.info(f"Managed transcript length: {token_management.count_tokens(managed_transcript)} tokens")
+        if use_rag:
+            # Use RAG to get relevant transcript chunks
+            logger.info("Using RAG for long transcript")
+            managed_transcript = rag.prepare_rag_context(transcript, question, history_for_token_mgmt)
+
+            # Log RAG results
+            logger.info(f"Original transcript length: {token_management.count_tokens(transcript)} tokens")
+            logger.info(f"RAG context length: {token_management.count_tokens(managed_transcript)} tokens")
+            logger.info(f"Reduction: {token_management.count_tokens(transcript) - token_management.count_tokens(managed_transcript)} tokens")
+        else:
+            # Apply standard token management to transcript
+            logger.info("Using standard token management for transcript")
+            managed_transcript, _ = token_management.prepare_for_model(transcript, question, [])
+
+            # Log token management results
+            logger.info(f"Original transcript length: {token_management.count_tokens(transcript)} tokens")
+            logger.info(f"Managed transcript length: {token_management.count_tokens(managed_transcript)} tokens")
+
+        # Apply token management to history
+        managed_history, _ = token_management.manage_history_tokens(history_for_token_mgmt, question)
+
+        # Log history management results
         logger.info(f"Original history length: {len(history) if history else 0} messages")
         logger.info(f"Managed history length: {len(managed_history)} messages")
 
@@ -643,7 +669,17 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
         4. Keep answers concise and to the point.
         5. If asked about timestamps or specific moments in the video, try to identify them from context clues in the transcript if possible.
         6. Format your responses in a clear, readable way using Markdown when appropriate.
+        """
 
+        # Add RAG-specific instructions if using RAG
+        if use_rag:
+            system_prompt += """
+            NOTE: The transcript has been processed using Retrieval Augmented Generation (RAG) to extract the most relevant sections for your question.
+            Each section includes a relevance score indicating how closely it matches your question.
+            Focus on the sections with the highest relevance scores.
+            """
+
+        system_prompt += f"""
         TRANSCRIPT:
         {managed_transcript}
         """
