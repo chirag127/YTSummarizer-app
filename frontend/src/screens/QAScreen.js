@@ -29,10 +29,9 @@ import {
     isSpeaking,
     setSpeechCallbacks,
     clearSpeechCallbacks,
+    processTextForSpeech,
 } from "../services/tts";
-import {parseMarkdownToPlainText
-} from "../utils";
-
+import { parseMarkdownToPlainText } from "../utils";
 
 const QAScreen = ({ route, navigation }) => {
     // Get video info from route params
@@ -88,8 +87,6 @@ const QAScreen = ({ route, navigation }) => {
         }
     }
 
-    console.log("Video ID extracted:", videoId);
-    console.log("Summary data:", JSON.stringify(summary, null, 2));
 
     const videoTitle = summary ? summary.video_title : "Video Q&A";
     const videoThumbnail = summary ? summary.video_thumbnail_url : null;
@@ -112,10 +109,14 @@ const QAScreen = ({ route, navigation }) => {
     // TTS state
     const [isPlayingTTS, setIsPlayingTTS] = useState(false);
     const [speakingMessageId, setSpeakingMessageId] = useState(null);
+    const [currentWord, setCurrentWord] = useState(null);
+    const [currentSentence, setCurrentSentence] = useState(0);
+    const [processedTexts, setProcessedTexts] = useState({});
 
     // Refs
     const flatListRef = useRef(null);
     const inputRef = useRef(null);
+    const messageRefs = useRef({});
 
     // Function to load chat history
     const loadChatHistory = async (forceTranscript = false) => {
@@ -200,10 +201,38 @@ const QAScreen = ({ route, navigation }) => {
             });
         }
 
+        // Setup speech callbacks for word highlighting
+        setSpeechCallbacks({
+            onBoundary: (event) => {
+                // Update the current word with the information from the event
+                setCurrentWord({
+                    word: event.word,
+                    sentenceIndex: event.sentenceIndex,
+                    wordIndex: event.wordIndex,
+                });
+                setCurrentSentence(event.sentenceIndex);
+            },
+            onStart: (sentenceIndex) => {
+                setCurrentSentence(sentenceIndex || 0);
+                setCurrentWord(null);
+            },
+            onDone: () => {
+                setCurrentWord(null);
+                setIsPlayingTTS(false);
+                setSpeakingMessageId(null);
+            },
+            onStopped: () => {
+                setCurrentWord(null);
+                setIsPlayingTTS(false);
+                setSpeakingMessageId(null);
+            },
+        });
+
         // Track session end when component unmounts
         return () => {
             // Stop any ongoing speech when navigating away
             stopSpeaking();
+            clearSpeechCallbacks();
 
             if (sessionData) {
                 analytics.trackQASessionEnd(sessionData, messages.length);
@@ -263,6 +292,28 @@ const QAScreen = ({ route, navigation }) => {
             keyboardDidHideListener.remove();
         };
     }, [messages.length]);
+
+    // Scroll to the current word being spoken
+    useEffect(() => {
+        if (
+            currentWord &&
+            speakingMessageId &&
+            messageRefs.current[speakingMessageId]
+        ) {
+            // Get the message ref and measure its position
+            messageRefs.current[speakingMessageId].measureLayout(
+                flatListRef.current,
+                (_, y) => {
+                    // Scroll to the position
+                    flatListRef.current.scrollToOffset({
+                        offset: y - 100, // Scroll to position with some padding
+                        animated: true,
+                    });
+                },
+                (error) => console.log("Measurement failed:", error)
+            );
+        }
+    }, [currentWord, speakingMessageId]);
 
     // Handle send message
     const handleSend = async () => {
@@ -396,6 +447,7 @@ const QAScreen = ({ route, navigation }) => {
                 await stopSpeaking();
                 setIsPlayingTTS(false);
                 setSpeakingMessageId(null);
+                setCurrentWord(null);
                 return;
             }
 
@@ -406,6 +458,19 @@ const QAScreen = ({ route, navigation }) => {
 
             // Convert markdown to plain text for speech
             const plainText = parseMarkdownToPlainText(message.content);
+
+            // Process text for highlighting if not already processed
+            if (!processedTexts[message.id]) {
+                const processed = processTextForSpeech(plainText);
+                setProcessedTexts((prev) => ({
+                    ...prev,
+                    [message.id]: processed,
+                }));
+            }
+
+            // Reset current sentence and word
+            setCurrentSentence(0);
+            setCurrentWord(null);
 
             // Start speaking
             const success = await speakText(plainText);
@@ -420,6 +485,7 @@ const QAScreen = ({ route, navigation }) => {
                     if (!stillSpeaking) {
                         setIsPlayingTTS(false);
                         setSpeakingMessageId(null);
+                        setCurrentWord(null);
                         clearInterval(checkInterval);
                     }
                 }, 1000);
@@ -433,6 +499,7 @@ const QAScreen = ({ route, navigation }) => {
             console.error("Error speaking message:", error);
             setIsPlayingTTS(false);
             setSpeakingMessageId(null);
+            setCurrentWord(null);
         }
     };
 
@@ -465,12 +532,20 @@ const QAScreen = ({ route, navigation }) => {
         // Determine if this is a user message
         const isUserMessage = item.role === "user";
 
+        // Check if this message is currently being spoken
+        const isBeingSpoken = speakingMessageId === item.id && isPlayingTTS;
+
+        // Get the processed text for this message if it's being spoken
+        const processedText = processedTexts[item.id];
+
         return (
             <TouchableOpacity
+                ref={(ref) => (messageRefs.current[item.id] = ref)}
                 style={[
                     styles.messageContainer,
                     isUserMessage ? styles.userMessage : styles.aiMessage,
                     item.isOffline && styles.offlineMessage,
+                    isBeingSpoken && styles.speakingMessage,
                 ]}
                 onLongPress={() => handleCopyMessage(item.content)}
             >
@@ -481,6 +556,51 @@ const QAScreen = ({ route, navigation }) => {
                         >
                             {item.content}
                         </Text>
+                    ) : isBeingSpoken && processedText ? (
+                        // Render with word highlighting when being spoken
+                        <View>
+                            {processedText.sentences.map(
+                                (sentence, sentenceIndex) => (
+                                    <View
+                                        key={`sentence-${item.id}-${sentenceIndex}`}
+                                        style={[
+                                            styles.sentenceContainer,
+                                            currentSentence === sentenceIndex &&
+                                                styles.activeSentence,
+                                        ]}
+                                    >
+                                        {sentence
+                                            .split(/\s+/)
+                                            .map((word, wordIdx) => {
+                                                // Skip empty words
+                                                if (word.trim() === "")
+                                                    return null;
+
+                                                // Check if this word should be highlighted
+                                                const isHighlighted =
+                                                    currentWord &&
+                                                    currentWord.sentenceIndex ===
+                                                        sentenceIndex &&
+                                                    currentWord.wordIndex ===
+                                                        wordIdx;
+
+                                                return (
+                                                    <Text
+                                                        key={`word-${item.id}-${sentenceIndex}-${wordIdx}`}
+                                                        style={[
+                                                            styles.word,
+                                                            isHighlighted &&
+                                                                styles.highlightedWord,
+                                                        ]}
+                                                    >
+                                                        {word}{" "}
+                                                    </Text>
+                                                );
+                                            })}
+                                    </View>
+                                )
+                            )}
+                        </View>
                     ) : (
                         <Markdown style={markdownStyles}>
                             {item.content}
@@ -509,12 +629,7 @@ const QAScreen = ({ route, navigation }) => {
                             onPress={() => handleSpeakMessage(item)}
                         >
                             <Ionicons
-                                name={
-                                    speakingMessageId === item.id &&
-                                    isPlayingTTS
-                                        ? "pause"
-                                        : "volume-high"
-                                }
+                                name={isBeingSpoken ? "pause" : "volume-high"}
                                 size={18}
                                 color={COLORS.primary}
                             />
@@ -775,6 +890,32 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         color: COLORS.text,
         textAlign: "center",
+    },
+    // TTS Highlighting styles
+    sentenceContainer: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        marginBottom: SPACING.md,
+    },
+    activeSentence: {
+        backgroundColor: "rgba(0, 123, 255, 0.05)",
+        borderRadius: 4,
+        padding: SPACING.xs,
+    },
+    word: {
+        fontSize: FONT_SIZES.md,
+        color: COLORS.text,
+        lineHeight: 22,
+    },
+    highlightedWord: {
+        backgroundColor: "rgba(0, 123, 255, 0.4)",
+        borderRadius: 4,
+        fontWeight: "600",
+        color: COLORS.primary,
+    },
+    speakingMessage: {
+        borderWidth: 1,
+        borderColor: COLORS.primary,
     },
     messageList: {
         padding: SPACING.md,
