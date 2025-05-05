@@ -23,6 +23,16 @@ import { COLORS, SPACING, FONT_SIZES } from "../constants";
 import { getVideoQAHistory, askVideoQuestion } from "../services/api";
 import { useTimeZone } from "../context/TimeZoneContext";
 import * as analytics from "../services/analytics";
+import {
+    speakText,
+    stopSpeaking,
+    isSpeaking,
+    setSpeechCallbacks,
+    clearSpeechCallbacks,
+} from "../services/tts";
+import {parseMarkdownToPlainText
+} from "../utils";
+
 
 const QAScreen = ({ route, navigation }) => {
     // Get video info from route params
@@ -98,6 +108,10 @@ const QAScreen = ({ route, navigation }) => {
     const [error, setError] = useState(null);
     const [isRetrying, setIsRetrying] = useState(false);
     const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+
+    // TTS state
+    const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+    const [speakingMessageId, setSpeakingMessageId] = useState(null);
 
     // Refs
     const flatListRef = useRef(null);
@@ -188,6 +202,9 @@ const QAScreen = ({ route, navigation }) => {
 
         // Track session end when component unmounts
         return () => {
+            // Stop any ongoing speech when navigating away
+            stopSpeaking();
+
             if (sessionData) {
                 analytics.trackQASessionEnd(sessionData, messages.length);
 
@@ -371,6 +388,54 @@ const QAScreen = ({ route, navigation }) => {
         }
     };
 
+    // Handle text-to-speech for a message
+    const handleSpeakMessage = async (message) => {
+        try {
+            // If already speaking this message, stop it
+            if (speakingMessageId === message.id && isPlayingTTS) {
+                await stopSpeaking();
+                setIsPlayingTTS(false);
+                setSpeakingMessageId(null);
+                return;
+            }
+
+            // If speaking a different message, stop it first
+            if (isPlayingTTS) {
+                await stopSpeaking();
+            }
+
+            // Convert markdown to plain text for speech
+            const plainText = parseMarkdownToPlainText(message.content);
+
+            // Start speaking
+            const success = await speakText(plainText);
+
+            if (success) {
+                setIsPlayingTTS(true);
+                setSpeakingMessageId(message.id);
+
+                // Check speaking status periodically
+                const checkInterval = setInterval(async () => {
+                    const stillSpeaking = await isSpeaking();
+                    if (!stillSpeaking) {
+                        setIsPlayingTTS(false);
+                        setSpeakingMessageId(null);
+                        clearInterval(checkInterval);
+                    }
+                }, 1000);
+
+                // Return cleanup function
+                return () => {
+                    clearInterval(checkInterval);
+                };
+            }
+        } catch (error) {
+            console.error("Error speaking message:", error);
+            setIsPlayingTTS(false);
+            setSpeakingMessageId(null);
+        }
+    };
+
     // Show analytics metrics
     const showAnalytics = () => {
         const metrics = analytics.getAnalyticsMetrics();
@@ -422,19 +487,40 @@ const QAScreen = ({ route, navigation }) => {
                         </Markdown>
                     )}
                 </View>
-                {item.isOffline && (
-                    <View style={styles.offlineIndicator}>
-                        <Ionicons
-                            name="cloud-offline-outline"
-                            size={16}
-                            color={COLORS.error}
-                        />
-                        <Text style={styles.offlineText}>Offline</Text>
-                    </View>
-                )}
-                <Text style={styles.timestamp}>
-                    {formatDateWithTimeZone(item.timestamp)}
-                </Text>
+                <View style={styles.messageFooter}>
+                    {item.isOffline && (
+                        <View style={styles.offlineIndicator}>
+                            <Ionicons
+                                name="cloud-offline-outline"
+                                size={16}
+                                color={COLORS.error}
+                            />
+                            <Text style={styles.offlineText}>Offline</Text>
+                        </View>
+                    )}
+                    <Text style={styles.timestamp}>
+                        {formatDateWithTimeZone(item.timestamp)}
+                    </Text>
+
+                    {/* Only show TTS button for AI messages */}
+                    {!isUserMessage && (
+                        <TouchableOpacity
+                            style={styles.ttsButton}
+                            onPress={() => handleSpeakMessage(item)}
+                        >
+                            <Ionicons
+                                name={
+                                    speakingMessageId === item.id &&
+                                    isPlayingTTS
+                                        ? "pause"
+                                        : "volume-high"
+                                }
+                                size={18}
+                                color={COLORS.primary}
+                            />
+                        </TouchableOpacity>
+                    )}
+                </View>
             </TouchableOpacity>
         );
     };
@@ -727,11 +813,23 @@ const styles = StyleSheet.create({
     userMessageText: {
         color: COLORS.background,
     },
+    messageFooter: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        alignItems: "center",
+        width: "100%",
+        marginTop: SPACING.xs,
+    },
     timestamp: {
         fontSize: FONT_SIZES.xs,
         color: COLORS.textSecondary,
-        marginTop: SPACING.xs,
-        alignSelf: "flex-end",
+        marginRight: SPACING.sm,
+    },
+    ttsButton: {
+        padding: SPACING.xs,
+        borderRadius: 20,
+        backgroundColor: COLORS.surface,
+        marginLeft: SPACING.xs,
     },
     inputContainer: {
         flexDirection: "row",
