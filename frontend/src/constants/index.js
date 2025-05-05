@@ -2,7 +2,6 @@ export const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrende
 // export const API_BASE_URL = "http://192.168.31.232:8000";
 
 
-
 // Summary Types
 export const SUMMARY_TYPES = [
     { id: "Brief", label: "Brief" },
