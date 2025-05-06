@@ -80,3 +80,6 @@ Dark Mode & UI Improvements - Relatively easy to implement with high user satisf
 Enhanced TTS Features - Building on existing functionality with high utility
 Advanced Offline Capabilities - Critical for mobile users with connectivity issues
 Multi-language Support - Expands your potential user base significantly
+
+
+Implement the tests for the backend code that runs in github actions on every push
