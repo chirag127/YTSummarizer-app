@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 import os
 import re
 import yt_dlp
@@ -35,18 +36,6 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(title="YouTube Summarizer API")
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # MongoDB connection
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "youtube_summarizer")
@@ -59,8 +48,13 @@ if not GEMINI_API_KEY:
 # Database connection
 client = None
 
-@app.on_event("startup")
-async def startup_db_client():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for the FastAPI application.
+    Handles startup and shutdown events.
+    """
+    # Startup: Connect to MongoDB and initialize Redis cache
     global client
     try:
         # Connect to MongoDB
@@ -88,16 +82,31 @@ async def startup_db_client():
         logger.error(f"Failed to connect to MongoDB or Redis: {e}")
         raise
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    global client
-    # Close MongoDB connection
+    # Yield control back to the application
+    yield
+
+    # Shutdown: Close MongoDB and Redis connections
     if client:
         client.close()
         logger.info("MongoDB connection closed")
 
     # Close Redis connection
     await cache.close_redis()
+
+# Initialize FastAPI app with lifespan context manager
+app = FastAPI(
+    title="YouTube Summarizer API",
+    lifespan=lifespan
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Helper function to get database
 def get_database():
