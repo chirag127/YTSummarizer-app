@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 
 from app.config import settings, logger
-import token_management  # Import the original token management module
+from app.utils.token_management import prepare_for_model, manage_history_tokens, count_tokens
 
 async def generate_qa_response(transcript: str, question: str, history: List[Dict[str, Any]] = None, user_api_key: str = None) -> str:
     """Generate answer to a question about a video using Gemini API.
@@ -42,14 +42,14 @@ async def generate_qa_response(transcript: str, question: str, history: List[Dic
 
         # Apply standard token management to transcript
         logger.info("Using standard token management for transcript")
-        managed_transcript, managed_history = token_management.prepare_for_model(transcript, question, history_for_token_mgmt)
+        managed_transcript, managed_history = prepare_for_model(transcript, question, history_for_token_mgmt)
 
         # Log token management results
-        logger.info(f"Original transcript length: {token_management.count_tokens(transcript)} tokens")
-        logger.info(f"Managed transcript length: {token_management.count_tokens(managed_transcript)} tokens")
+        logger.info(f"Original transcript length: {count_tokens(transcript)} tokens")
+        logger.info(f"Managed transcript length: {count_tokens(managed_transcript)} tokens")
 
         # Apply token management to history
-        managed_history, _ = token_management.manage_history_tokens(history_for_token_mgmt, question)
+        managed_history, _ = manage_history_tokens(history_for_token_mgmt, question)
 
         # Log history management results
         logger.info(f"Original history length: {len(history) if history else 0} messages")
