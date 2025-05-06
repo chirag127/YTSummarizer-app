@@ -227,7 +227,13 @@ def extract_video_id(url: str) -> str:
     return None
 
 async def extract_video_info(url: str) -> Dict[str, Any]:
-    """Extract video information using yt-dlp with caching."""
+    """Extract video information using yt-dlp with caching.
+
+    Optimized version that:
+    1. Prioritizes cache usage
+    2. Uses more efficient yt-dlp options
+    3. Properly handles async operations
+    """
 
     # Extract video ID from URL
     video_id = extract_video_id(url)
@@ -253,7 +259,16 @@ async def extract_video_info(url: str) -> Dict[str, Any]:
 
         # We still need to fetch basic video info if not in cache
         try:
-            with yt_dlp.YoutubeDL({'skip_download': True}) as ydl:
+            # Use minimal yt-dlp options for faster metadata retrieval
+            minimal_opts = {
+                'skip_download': True,
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': True,  # Only extract basic metadata
+                'force_generic_extractor': False
+            }
+
+            with yt_dlp.YoutubeDL(minimal_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 video_info = {
                     'title': info.get('title', 'Title Unavailable'),
@@ -872,6 +887,40 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_us
     # Check if summary already exists with the same URL, type, and length
     # Skip this check if force_regenerate is True
     if not youtube_url.force_regenerate:
+        # First check Redis cache for faster response
+        video_id = extract_video_id(url)
+        if video_id:
+            cached_summary = await cache.get_cached_summary(
+                video_id,
+                youtube_url.summary_type,
+                youtube_url.summary_length
+            )
+
+            if cached_summary and 'summary_text' in cached_summary:
+                logger.info(f"Using cached summary for video ID {video_id}, type {youtube_url.summary_type}, length {youtube_url.summary_length}")
+
+                # Create a summary response from the cached data
+                # We still need to get the video info for title and thumbnail
+                video_info = await cache.get_cached_video_info(video_id)
+
+                summary = {
+                    "id": f"cache:{video_id}:{youtube_url.summary_type}:{youtube_url.summary_length}",
+                    "video_url": url,
+                    "video_title": video_info.get('title', 'Title Unavailable') if video_info else 'Title Unavailable',
+                    "video_thumbnail_url": video_info.get('thumbnail') if video_info else None,
+                    "summary_text": cached_summary['summary_text'],
+                    "summary_type": youtube_url.summary_type,
+                    "summary_length": youtube_url.summary_length,
+                    "transcript_language": video_info.get('transcript_language') if video_info else None,
+                    "is_starred": False,
+                    "created_at": cached_summary.get('generated_at', datetime.now(timezone.utc).isoformat()),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "from_cache": True
+                }
+
+                return SummaryResponse(**summary)
+
+        # If not in Redis cache, check database
         existing_summary = await db.summaries.find_one({
             "video_url": url,
             "summary_type": youtube_url.summary_type,
@@ -880,6 +929,16 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_us
         if existing_summary:
             # Convert ObjectId to string for response
             existing_summary["id"] = str(existing_summary.pop("_id"))
+
+            # Also cache this summary in Redis for faster future access
+            if video_id:
+                await cache.cache_summary_result(
+                    video_id,
+                    youtube_url.summary_type,
+                    youtube_url.summary_length,
+                    existing_summary.get("summary_text", "")
+                )
+
             return SummaryResponse(**existing_summary)
 
     # Extract video information
@@ -932,6 +991,17 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_us
 
     # Insert into database
     result = await db.summaries.insert_one(summary)
+
+    # Also cache the summary in Redis for faster future access
+    video_id = extract_video_id(url)
+    if video_id:
+        await cache.cache_summary_result(
+            video_id,
+            youtube_url.summary_type,
+            youtube_url.summary_length,
+            summary_text
+        )
+        logger.info(f"Cached summary in Redis for video ID {video_id}, type {youtube_url.summary_type}, length {youtube_url.summary_length}")
 
     # Return response
     summary["id"] = str(result.inserted_id)
@@ -1177,10 +1247,25 @@ async def clear_video_cache(video_id: str):
         # Delete languages cache
         await cache.delete_cache(f"languages:{video_id}")
 
+        # Delete all summary caches for this video
+        summary_keys = await cache.redis_client.keys(f"summary:{video_id}:*")
+        for key in summary_keys:
+            await cache.delete_cache(key)
+
         return {"message": f"Cache for video {video_id} cleared successfully"}
     except Exception as e:
         logger.error(f"Error clearing cache for video {video_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
+
+@app.get("/cache/stats", response_model=Dict[str, Any])
+async def get_cache_stats():
+    """Get cache statistics."""
+    try:
+        stats = await cache.get_cache_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting cache stats: {str(e)}")
 
 @app.get("/cache/status", response_model=Dict[str, Any])
 async def get_cache_status():
