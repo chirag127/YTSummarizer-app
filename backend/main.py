@@ -1115,6 +1115,83 @@ async def delete_summary(summary_id: str, db=Depends(get_database)):
         logger.error(f"Error deleting summary: {e}")
         raise HTTPException(status_code=500, detail=f"Error deleting summary: {str(e)}")
 
+@app.post("/summaries/{summary_id}/regenerate", response_model=SummaryResponse)
+async def regenerate_summary(summary_id: str, db=Depends(get_database), x_user_api_key: str = None):
+    """Regenerate a summary with the same parameters.
+
+    This endpoint creates a new summary with the same type and length as the existing one,
+    but with a fresh generation from the AI model.
+
+    The user can optionally provide their own Gemini API key via the X-User-API-Key header.
+    """
+    try:
+        # Find the existing summary
+        existing_summary = await db.summaries.find_one({"_id": ObjectId(summary_id)})
+        if not existing_summary:
+            raise HTTPException(status_code=404, detail="Summary not found")
+
+        # Extract video information again
+        video_info = await extract_video_info(existing_summary["video_url"])
+
+        if not video_info.get('transcript'):
+            raise HTTPException(
+                status_code=400,
+                detail="No transcript/captions available for this video. Cannot regenerate summary."
+            )
+
+        # Get the current parameters
+        summary_type = existing_summary["summary_type"]
+        summary_length = existing_summary["summary_length"]
+
+        # Get user API key from header if provided
+        user_api_key = x_user_api_key
+
+        # Generate new summary with user API key if provided
+        try:
+            summary_text = await generate_summary(
+                video_info.get('transcript', "No transcript available"),
+                summary_type,
+                summary_length,
+                user_api_key
+            )
+        except Exception as e:
+            # If there's an error with the user's API key, log it and return a specific error
+            if user_api_key:
+                logger.error(f"Error generating summary with user API key: {e}")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Failed to generate summary with your API key. Please check if your API key is valid and has sufficient quota."
+                )
+            # If using the default API key, re-raise the exception
+            raise
+
+        # Create a new summary document
+        now = get_utc_now()
+        new_summary = {
+            "video_url": existing_summary["video_url"],
+            "video_title": existing_summary["video_title"],
+            "video_thumbnail_url": existing_summary["video_thumbnail_url"],
+            "summary_text": summary_text,
+            "summary_type": summary_type,
+            "summary_length": summary_length,
+            "transcript_language": video_info.get('transcript_language'),
+            "is_starred": False,  # New summary starts unstarred
+            "created_at": now,
+            "updated_at": now
+        }
+
+        # Insert the new summary
+        result = await db.summaries.insert_one(new_summary)
+
+        # Return the new summary
+        new_summary["id"] = str(result.inserted_id)
+        return SummaryResponse(**new_summary)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error regenerating summary: {e}")
+        raise HTTPException(status_code=500, detail=f"Error regenerating summary: {str(e)}")
+
 @app.get("/video-summaries", response_model=Dict[str, Any])
 async def get_video_summaries(video_url: str, db=Depends(get_database)):
     """Get all summaries for a specific video URL."""

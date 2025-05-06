@@ -21,6 +21,7 @@ import { useTimeZone } from "../context/TimeZoneContext";
 // Import components, services, and utilities
 import {
     updateSummary,
+    regenerateSummary,
     toggleStarSummary,
     getVideoSummaries,
 } from "../services/api";
@@ -47,6 +48,7 @@ import {
     FONT_SIZES,
     SUMMARY_TYPES,
     SUMMARY_LENGTHS,
+    SHADOWS,
 } from "../constants";
 
 const SummaryScreen = ({ route, navigation }) => {
@@ -98,6 +100,17 @@ const SummaryScreen = ({ route, navigation }) => {
     // Refs
     const scrollViewRef = useRef(null);
     const sentenceRefs = useRef({});
+
+    // Handle cancel regeneration
+    let handleCancel = () => {
+        setIsLoading(false);
+        setGenerationStartTime(null);
+        setElapsedTime(0);
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+    };
 
     // Set navigation title
     useEffect(() => {
@@ -375,6 +388,86 @@ const SummaryScreen = ({ route, navigation }) => {
         }
     };
 
+    // Handle regenerate summary - regenerates the summary with the same parameters
+    const handleRegenerateSummary = async () => {
+        // Create an abort controller for cancellation
+        const abortController = new AbortController();
+
+        // Use a local variable for accurate time tracking
+        const startTime = Date.now();
+        setIsLoading(true);
+        setGenerationStartTime(startTime); // Update state for UI timer
+
+        // Store the abort controller in a ref for the cancel button
+        const cancelRef = {
+            abort: () => {
+                abortController.abort();
+                setIsLoading(false);
+                setGenerationStartTime(null);
+                setElapsedTime(0);
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                }
+            },
+        };
+
+        // Update the cancel button handler
+        const originalCancelHandler = handleCancel;
+        handleCancel = () => {
+            cancelRef.abort();
+            originalCancelHandler();
+        };
+
+        try {
+            const newSummary = await regenerateSummary(summary.id);
+
+            // If loading was cancelled, don't update UI
+            if (!isLoading) return;
+
+            // Calculate the elapsed time using the local variable for accuracy
+            const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+            newSummary.timeTaken = timeTaken > 0 ? timeTaken : 1; // Ensure at least 1 second is shown
+
+            // Update the route params with the new summary
+            navigation.setParams({ summary: newSummary });
+
+            // Refresh other summaries list
+            const response = await getVideoSummaries(summary.video_url);
+            const filteredSummaries = response.summaries.filter(
+                (s) => s.id !== newSummary.id
+            );
+            setOtherSummaries(filteredSummaries);
+
+            // Show success message
+            Alert.alert(
+                "Success",
+                "Summary has been regenerated successfully."
+            );
+        } catch (error) {
+            // Don't show error if it was cancelled
+            if (error.name === "AbortError" || !isLoading) return;
+
+            console.error("Error regenerating summary:", error);
+            Alert.alert(
+                "Error",
+                error.response?.data?.detail ||
+                    "Failed to regenerate summary. Please try again."
+            );
+        } finally {
+            // Restore original cancel handler
+            handleCancel = originalCancelHandler;
+
+            setIsLoading(false);
+            setGenerationStartTime(null);
+            setElapsedTime(0);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        }
+    };
+
     // Render edit modal
     const renderEditModal = () => {
         return (
@@ -532,9 +625,37 @@ const SummaryScreen = ({ route, navigation }) => {
         );
     }
 
+    // Render loading overlay for regeneration
+    const renderLoadingOverlay = () => {
+        if (!isLoading || editModalVisible) return null;
+
+        return (
+            <View style={styles.loadingOverlay}>
+                <View style={styles.loadingCard}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                    <Text style={styles.loadingText}>
+                        Regenerating summary... {elapsedTime}s
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.cancelButton}
+                        onPress={handleCancel}
+                    >
+                        <Ionicons
+                            name="close-circle"
+                            size={20}
+                            color={COLORS.error}
+                        />
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             {renderEditModal()}
+            {renderLoadingOverlay()}
 
             <ScrollView
                 ref={scrollViewRef}
@@ -879,6 +1000,26 @@ const SummaryScreen = ({ route, navigation }) => {
 
                 <TouchableOpacity
                     style={styles.actionButton}
+                    onPress={handleRegenerateSummary}
+                    disabled={isLoading}
+                >
+                    <Ionicons
+                        name="refresh-outline"
+                        size={24}
+                        color={isLoading ? COLORS.disabled : COLORS.primary}
+                    />
+                    <Text
+                        style={[
+                            styles.actionButtonText,
+                            isLoading && { color: COLORS.disabled },
+                        ]}
+                    >
+                        Regenerate
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.actionButton}
                     onPress={handleEdit}
                 >
                     <Ionicons
@@ -906,6 +1047,28 @@ const SummaryScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
+    // Loading overlay styles
+    loadingOverlay: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 1000,
+    },
+    loadingCard: {
+        backgroundColor: COLORS.background,
+        borderRadius: 8,
+        padding: SPACING.lg,
+        width: "80%",
+        maxWidth: 300,
+        alignItems: "center",
+        ...SHADOWS.medium,
+    },
+
     // TTS Highlighting styles
     sentenceContainer: {
         flexDirection: "row",

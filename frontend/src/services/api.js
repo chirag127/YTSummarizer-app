@@ -9,7 +9,6 @@ import { extractVideoId } from "../utils";
 import apiActions from "./apiActions";
 import { API_BASE_URL } from "../constants";
 
-
 // Base URL for API calls - change this to your backend URL
 // const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
 // const API_BASE_URL = "http://192.168.31.232:8000";
@@ -418,6 +417,88 @@ export const getSummaryById = async (id) => {
                 summary_length: "Medium",
                 created_at: new Date().toISOString(),
             };
+        }
+
+        throw error;
+    }
+};
+
+export const regenerateSummary = async (id) => {
+    // Check network status
+    const netInfo = await NetInfo.fetch();
+    const isNetworkAvailable =
+        netInfo.isConnected && netInfo.isInternetReachable;
+
+    try {
+        if (isNetworkAvailable) {
+            // Try to regenerate via API first
+            const response = await api.post(`/summaries/${id}/regenerate`);
+
+            // Cache the regenerated summary locally
+            await storageService.saveSummary(response.data);
+
+            return response.data;
+        } else {
+            // Offline mode - add to queue
+            const summary = await getSummaryById(id);
+
+            const queueItem = await queueService.addToQueue({
+                url: summary.video_url,
+                type: summary.summary_type,
+                length: summary.summary_length,
+                isRegeneration: true,
+            });
+
+            // Return a placeholder summary
+            return {
+                id: queueItem.requestId,
+                video_url: summary.video_url,
+                video_title: `${summary.video_title} (Regeneration Queued)`,
+                video_thumbnail_url: summary.video_thumbnail_url,
+                summary_text:
+                    "This summary regeneration will be processed when you're back online.",
+                summary_type: summary.summary_type,
+                summary_length: summary.summary_length,
+                created_at: new Date().toISOString(),
+                is_queued: true,
+                queue_status: "pending",
+            };
+        }
+    } catch (error) {
+        console.error("Error regenerating summary:", error);
+
+        // If there's a network error, try to continue with a fallback
+        if (error.message === "Network Error") {
+            try {
+                const summary = await getSummaryById(id);
+
+                const queueItem = await queueService.addToQueue({
+                    url: summary.video_url,
+                    type: summary.summary_type,
+                    length: summary.summary_length,
+                    isRegeneration: true,
+                });
+
+                return {
+                    id: queueItem.requestId,
+                    video_url: summary.video_url,
+                    video_title: `${summary.video_title} (Regeneration Queued)`,
+                    video_thumbnail_url: summary.video_thumbnail_url,
+                    summary_text:
+                        "This summary regeneration will be processed when you're back online.",
+                    summary_type: summary.summary_type,
+                    summary_length: summary.summary_length,
+                    created_at: new Date().toISOString(),
+                    is_queued: true,
+                    queue_status: "pending",
+                };
+            } catch (innerError) {
+                console.error(
+                    "Error creating queued regeneration summary:",
+                    innerError
+                );
+                throw error;
+            }
         }
 
         throw error;
@@ -858,6 +939,7 @@ export default {
     getAllSummaries,
     getSummaryById,
     updateSummary,
+    regenerateSummary,
     toggleStarSummary,
     deleteSummary,
     getVideoSummaries,
