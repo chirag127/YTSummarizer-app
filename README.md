@@ -2,6 +2,7 @@
 
 A cross-platform application that generates concise summaries of YouTube videos using Gemini 2.0 Flash-Lite AI and provides text-to-speech capabilities.
 
+
 eas build -p android --profile preview
 
 ## deploy to netlify
