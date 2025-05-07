@@ -35,19 +35,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(title="YouTube Summarizer API")
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# MongoDB connection
+# MongoDB connection settings
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "youtube_summarizer")
 
@@ -59,8 +47,15 @@ if not GEMINI_API_KEY:
 # Database connection
 client = None
 
-@app.on_event("startup")
-async def startup_db_client():
+# Define lifespan context manager for FastAPI
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """
+    Lifespan context manager for FastAPI application.
+    Handles startup and shutdown events for database connections and other resources.
+    """
     global client
     try:
         # Connect to MongoDB
@@ -84,20 +79,31 @@ async def startup_db_client():
 
         # Initialize Redis cache
         await cache.init_redis()
+
+        yield  # This is where the app runs
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB or Redis: {e}")
         raise
+    finally:
+        # Close MongoDB connection
+        if client:
+            client.close()
+            logger.info("MongoDB connection closed")
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    global client
-    # Close MongoDB connection
-    if client:
-        client.close()
-        logger.info("MongoDB connection closed")
+        # Close Redis connection
+        await cache.close_redis()
 
-    # Close Redis connection
-    await cache.close_redis()
+# Initialize FastAPI app with lifespan
+app = FastAPI(title="YouTube Summarizer API", lifespan=lifespan)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Helper function to get database
 def get_database():
