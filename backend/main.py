@@ -64,18 +64,39 @@ async def lifespan(_: FastAPI):
         await client.admin.command('ping')
         logger.info("Connected to MongoDB")
 
-        # Create indexes for video_chats collection
+        # Create optimized indexes for collections
         db = client[DATABASE_NAME]
         try:
-            # Create index on videoId field for efficient querying
+            # Create indexes for video_chats collection
             await db.video_chats.create_index("videoId")
             logger.info("Created index on videoId field in video_chats collection")
 
-            # Create index on userId field for future user account integration
             await db.video_chats.create_index("userId")
             logger.info("Created index on userId field in video_chats collection")
+
+            # Create compound index for efficient sorting and filtering
+            await db.video_chats.create_index([("videoId", 1), ("updatedAt", -1)])
+            logger.info("Created compound index on videoId and updatedAt fields in video_chats collection")
+
+            # Create indexes for summaries collection
+            await db.summaries.create_index("video_url")
+            logger.info("Created index on video_url field in summaries collection")
+
+            await db.summaries.create_index([("created_at", -1)])
+            logger.info("Created index on created_at field in summaries collection")
+
+            await db.summaries.create_index([("is_starred", 1), ("created_at", -1)])
+            logger.info("Created compound index on is_starred and created_at fields in summaries collection")
+
+            # Create compound index for summary type and length queries
+            await db.summaries.create_index([
+                ("video_url", 1),
+                ("summary_type", 1),
+                ("summary_length", 1)
+            ])
+            logger.info("Created compound index for summary type and length queries in summaries collection")
         except Exception as index_error:
-            logger.error(f"Error creating indexes for video_chats collection: {index_error}")
+            logger.error(f"Error creating indexes for collections: {index_error}")
 
         # Initialize Redis cache
         await cache.init_redis()
@@ -931,11 +952,18 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_us
     return SummaryResponse(**summary)
 
 @app.get("/summaries", response_model=Dict[str, Any])
-async def get_summaries(page: int = 1, limit: int = 100, video_url: Optional[str] = None, db=Depends(get_database)):
-    """Get summaries with pagination.
+async def get_summaries(
+    page: int = 1,
+    limit: int = 100,
+    video_url: Optional[str] = None,
+    is_starred: Optional[bool] = None,
+    db=Depends(get_database)
+):
+    """Get summaries with pagination and filtering.
 
-    Optional query parameter:
+    Optional query parameters:
     - video_url: If provided, returns all summaries for the specified video URL
+    - is_starred: If provided, filters summaries by starred status
     """
     # Ensure valid pagination parameters
     page = max(1, page)  # Minimum page is 1
@@ -946,13 +974,51 @@ async def get_summaries(page: int = 1, limit: int = 100, video_url: Optional[str
     query_filter = {}
     if video_url:
         query_filter["video_url"] = video_url
+    if is_starred is not None:
+        query_filter["is_starred"] = is_starred
 
-    # Get total count for pagination info
-    total_count = await db.summaries.count_documents(query_filter)
+    # Define projection to return only needed fields (optimization)
+    projection = {
+        "video_url": 1,
+        "video_title": 1,
+        "video_thumbnail_url": 1,
+        "summary_type": 1,
+        "summary_length": 1,
+        "is_starred": 1,
+        "created_at": 1,
+        "updated_at": 1,
+        # Exclude the actual summary text to reduce data transfer
+        "summary_text": 0,
+    }
 
-    # Get paginated summaries
+    # Determine sort order based on filters
+    sort_order = []
+    if is_starred:
+        # If filtering by starred, sort by created_at within starred items
+        sort_order = [("created_at", -1)]
+    else:
+        # Otherwise use the compound index
+        sort_order = [("created_at", -1)]
+
+    # Get total count for pagination info (with caching for large collections)
+    cache_key = f"count:{hash(frozenset(query_filter.items()))}"
+    cached_count = await cache.get_cache(cache_key)
+
+    if cached_count is not None:
+        total_count = cached_count
+    else:
+        total_count = await db.summaries.count_documents(query_filter)
+        # Cache the count for 5 minutes (300 seconds) to avoid repeated counting
+        await cache.set_cache(cache_key, total_count, 300)
+
+    # Get paginated summaries with projection
     summaries = []
-    async for summary in db.summaries.find(query_filter).sort("created_at", -1).skip(skip).limit(limit):
+    cursor = db.summaries.find(
+        query_filter,
+        projection
+    ).sort(sort_order).skip(skip).limit(limit)
+
+    async for summary in cursor:
         summary["id"] = str(summary.pop("_id"))
         summaries.append(SummaryResponse(**summary))
 
@@ -1281,54 +1347,95 @@ async def get_cache_status():
 
 # Video Q&A endpoints
 @app.get("/api/v1/videos/{video_id}/qa", response_model=VideoQAResponse)
-async def get_video_qa_history(video_id: str, db=Depends(get_database), force_transcript: bool = False):
+async def get_video_qa_history(video_id: str, db=Depends(get_database), _: bool = False):
     """Get conversation history for a specific video."""
     try:
-        # Find the chat history for this video
-        chat = await db.video_chats.find_one({"videoId": video_id})
+        # Use projection to get only the fields we need
+        chat_projection = {
+            "videoId": 1,
+            "video_title": 1,
+            "video_thumbnail_url": 1,
+            "video_url": 1,
+            "history": 1,
+            "token_count": 1,
+            "transcript_token_count": 1
+        }
+
+        # Find the chat history for this video using the index
+        chat = await db.video_chats.find_one(
+            {"videoId": video_id},
+            projection=chat_projection
+        )
 
         # If no chat history exists, return an empty history
         if not chat:
-            # Get video info to include in response
-            video_url = None
-            video_title = None
-            video_thumbnail_url = None
-            has_transcript = force_transcript  # If force_transcript is True, we'll assume there's a transcript
+            # Cache key for video info to avoid repeated lookups
+            video_info_cache_key = f"qa_video_info:{video_id}"
+            cached_video_info = await cache.get_cache(video_info_cache_key)
 
-            # Try to find a summary for this video to get the URL
-            summary = await db.summaries.find_one({"video_url": {"$regex": video_id}})
-            if summary:
-                video_url = summary.get("video_url")
-                video_title = summary.get("video_title")
-                video_thumbnail_url = summary.get("video_thumbnail_url")
+            if cached_video_info:
+                # Use cached video info
+                logger.info(f"Using cached video info for QA session: {video_id}")
+                video_url = cached_video_info.get("video_url")
+                video_title = cached_video_info.get("video_title")
+                video_thumbnail_url = cached_video_info.get("video_thumbnail_url")
+                transcript_token_count = cached_video_info.get("transcript_token_count", 0)
+            else:
+                # Get video info to include in response
+                video_url = None
+                video_title = None
+                video_thumbnail_url = None
 
-                # Check if transcript is available
+                # Try to find a summary for this video to get the URL using the index
+                summary_projection = {
+                    "video_url": 1,
+                    "video_title": 1,
+                    "video_thumbnail_url": 1
+                }
+
+                summary = await db.summaries.find_one(
+                    {"video_url": {"$regex": video_id}},
+                    projection=summary_projection
+                )
+
+                if summary:
+                    video_url = summary.get("video_url")
+                    video_title = summary.get("video_title")
+                    video_thumbnail_url = summary.get("video_thumbnail_url")
+
+                # If no URL found from summary, try to construct one
+                if not video_url:
+                    video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+                # Get transcript token count if available
+                transcript_token_count = 0
                 if video_url:
-                    video_info = await extract_video_info(video_url)
-                    has_transcript = bool(video_info.get('transcript')) or force_transcript
-                    logger.info(f"Transcript check for video ID {video_id}: {has_transcript}")
+                    # Check if we have cached transcript
+                    cached_transcript = await cache.get_cached_transcript(video_id)
+                    if cached_transcript and cached_transcript.get('transcript'):
+                        transcript_token_count = token_management.count_tokens(cached_transcript.get('transcript', ''))
+                        logger.info(f"Using cached transcript token count for video ID {video_id}: {transcript_token_count}")
+                    else:
+                        # Try to get video info directly
+                        video_info = await extract_video_info(video_url)
+                        video_title = video_title or video_info.get('title')
+                        video_thumbnail_url = video_thumbnail_url or video_info.get('thumbnail')
 
-            # If no URL found from summary, try to construct one
-            if not video_url:
-                video_url = f"https://www.youtube.com/watch?v={video_id}"
-                # Try to get video info directly
-                video_info = await extract_video_info(video_url)
-                video_title = video_info.get('title')
-                video_thumbnail_url = video_info.get('thumbnail')
-                has_transcript = bool(video_info.get('transcript')) or force_transcript
-                logger.info(f"Direct transcript check for video ID {video_id}: {has_transcript}")
+                        if video_info.get('transcript'):
+                            transcript_token_count = token_management.count_tokens(video_info.get('transcript', ''))
+                            logger.info(f"Transcript token count for video ID {video_id}: {transcript_token_count}")
+
+                # Cache the video info for future requests (5 minute TTL)
+                await cache.set_cache(video_info_cache_key, {
+                    "video_url": video_url,
+                    "video_title": video_title,
+                    "video_thumbnail_url": video_thumbnail_url,
+                    "transcript_token_count": transcript_token_count
+                }, 300)
 
             # Always enable transcript for testing
             has_transcript = True
             logger.warning(f"Forcing transcript availability for video ID: {video_id}")
-
-            # Get transcript token count if available
-            transcript_token_count = 0
-            if video_url:
-                video_info = await extract_video_info(video_url)
-                if video_info.get('transcript'):
-                    transcript_token_count = token_management.count_tokens(video_info.get('transcript', ''))
-                    logger.info(f"Transcript token count for video ID {video_id}: {transcript_token_count}")
 
             return VideoQAResponse(
                 video_id=video_id,
@@ -1347,27 +1454,32 @@ async def get_video_qa_history(video_id: str, db=Depends(get_database), force_tr
         transcript_token_count = chat.get("transcript_token_count", 0)
         if transcript_token_count == 0:
             # Try to get the transcript and count tokens
-            video_url = None
-            if chat.get("video_url"):
-                video_url = chat.get("video_url")
-            else:
+            video_url = chat.get("video_url")
+            if not video_url:
                 # Try to construct URL from video_id
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-            # Get transcript and count tokens
-            try:
-                video_info = await extract_video_info(video_url)
-                if video_info.get('transcript'):
-                    transcript_token_count = token_management.count_tokens(video_info.get('transcript', ''))
-                    logger.info(f"Transcript token count for video ID {video_id}: {transcript_token_count}")
+            # Check if we have cached transcript
+            cached_transcript = await cache.get_cached_transcript(video_id)
+            if cached_transcript and cached_transcript.get('transcript'):
+                transcript_token_count = token_management.count_tokens(cached_transcript.get('transcript', ''))
+                logger.info(f"Using cached transcript token count for video ID {video_id}: {transcript_token_count}")
+            else:
+                # Get transcript and count tokens
+                try:
+                    video_info = await extract_video_info(video_url)
+                    if video_info.get('transcript'):
+                        transcript_token_count = token_management.count_tokens(video_info.get('transcript', ''))
+                        logger.info(f"Transcript token count for video ID {video_id}: {transcript_token_count}")
+                except Exception as e:
+                    logger.error(f"Error getting transcript token count: {e}")
 
-                    # Update the database with the transcript token count
-                    await db.video_chats.update_one(
-                        {"videoId": video_id},
-                        {"$set": {"transcript_token_count": transcript_token_count}}
-                    )
-            except Exception as e:
-                logger.error(f"Error getting transcript token count: {e}")
+            # Update the database with the transcript token count
+            if transcript_token_count > 0:
+                await db.video_chats.update_one(
+                    {"videoId": video_id},
+                    {"$set": {"transcript_token_count": transcript_token_count}}
+                )
 
         return VideoQAResponse(
             video_id=video_id,
