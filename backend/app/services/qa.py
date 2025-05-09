@@ -63,7 +63,9 @@ async def generate_qa_response(transcript: str, question: str, history: List[Cha
 
         # Try to use gemini-2.5-flash-preview-04-17 first, but fall back to gemini-2.0-flash-lite if unavailable
         primary_model = "gemini-2.5-flash-preview-04-17"
-        fallback_model = "gemini-2.0-flash-lite"
+
+        # fallback_model = "gemini-2.0-flash-lite"
+        fallback_model = "gemini-2.0-flash"
 
         # Start with the primary model
         model = primary_model

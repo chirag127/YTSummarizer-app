@@ -24,6 +24,7 @@ import {
     regenerateSummary,
     toggleStarSummary,
     getVideoSummaries,
+    generateSummary,
 } from "../services/api";
 import {
     speakText,
@@ -343,41 +344,124 @@ const SummaryScreen = ({ route, navigation }) => {
             return;
         }
 
+        // First, check if a summary with the selected type and length already exists
+        try {
+            // Fetch the latest summaries for this video to ensure we have the most up-to-date list
+            const response = await getVideoSummaries(summary.video_url);
+            const allSummaries = response.summaries;
+
+            // Look for an existing summary with the same type and length
+            const existingSummary = allSummaries.find(
+                (s) =>
+                    s.summary_type === selectedType &&
+                    s.summary_length === selectedLength
+            );
+
+            if (existingSummary) {
+                // A summary with these parameters already exists
+                setEditModalVisible(false);
+
+                // Navigate to the existing summary
+                handleNavigateToSummary(existingSummary);
+
+                // Show notification
+                Alert.alert(
+                    "Summary Already Exists",
+                    `A summary with type "${formatSummaryType(
+                        selectedType
+                    )}" and length "${formatSummaryLength(
+                        selectedLength
+                    )}" already exists for this video. Showing the existing summary instead.`
+                );
+
+                return;
+            }
+        } catch (error) {
+            console.error("Error checking for existing summaries:", error);
+            // Continue with summary generation even if the check fails
+        }
+
+        // Create an abort controller for cancellation
+        const abortController = new AbortController();
+
         // Use a local variable for accurate time tracking
         const startTime = Date.now();
         setIsLoading(true);
         setGenerationStartTime(startTime); // Update state for UI timer
 
+        // Store the abort controller in a ref for the cancel button
+        const cancelRef = {
+            abort: () => {
+                abortController.abort();
+                setIsLoading(false);
+                setGenerationStartTime(null);
+                setElapsedTime(0);
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                }
+            },
+        };
+
+        // Update the cancel button handler
+        const originalCancelHandler = handleCancel;
+        handleCancel = () => {
+            cancelRef.abort();
+            originalCancelHandler();
+        };
+
         try {
-            const newSummary = await updateSummary(
-                summary.id,
+            // Use generateSummary to create a new summary instead of updating the existing one
+            const newSummary = await generateSummary(
+                summary.video_url,
                 selectedType,
-                selectedLength
+                selectedLength,
+                abortController.signal
             );
+
+            // If loading was cancelled, don't update UI
+            if (!isLoading) return;
 
             // Calculate the elapsed time using the local variable for accuracy
             const timeTaken = Math.floor((Date.now() - startTime) / 1000);
             newSummary.timeTaken = timeTaken > 0 ? timeTaken : 1; // Ensure at least 1 second is shown
 
+            // Close the edit modal
             setEditModalVisible(false);
 
             // Refresh other summaries list
-            if (newSummary.id !== summary.id) {
-                const response = await getVideoSummaries(summary.video_url);
-                const filteredSummaries = response.summaries.filter(
-                    (s) => s.id !== newSummary.id
-                );
-                setOtherSummaries(filteredSummaries);
+            const response = await getVideoSummaries(summary.video_url);
+            const filteredSummaries = response.summaries.filter(
+                (s) => s.id !== newSummary.id
+            );
+            setOtherSummaries(filteredSummaries);
+
+            // Automatically show and highlight the other summaries section
+            if (filteredSummaries.length > 0) {
+                setShowOtherSummaries(true);
             }
 
             navigation.setParams({ summary: newSummary });
         } catch (error) {
+            // Don't show error if it was cancelled
+            if (error.name === "AbortError" || !isLoading) return;
+
             console.error("Error creating new summary:", error);
+
+            // Close the edit modal even if there's an error
+            setEditModalVisible(false);
+
             Alert.alert(
                 "Error",
                 error.response?.data?.detail || "Failed to create new summary."
             );
         } finally {
+            // Restore original cancel handler
+            handleCancel = originalCancelHandler;
+
+            // Ensure the modal is closed in all cases
+            setEditModalVisible(false);
+
             setIsLoading(false);
             setGenerationStartTime(null);
             setElapsedTime(0);
@@ -495,13 +579,7 @@ const SummaryScreen = ({ route, navigation }) => {
                                 <TouchableOpacity
                                     style={styles.cancelButton}
                                     onPress={() => {
-                                        setIsLoading(false);
-                                        setGenerationStartTime(null);
-                                        setElapsedTime(0);
-                                        if (timerRef.current) {
-                                            clearInterval(timerRef.current);
-                                            timerRef.current = null;
-                                        }
+                                        handleCancel();
                                         setEditModalVisible(false);
                                     }}
                                 >
