@@ -4,12 +4,11 @@ Video-related API routes for the YouTube Summarizer API.
 This module defines the routes for validating YouTube URLs and extracting video information.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
 import logging
 from app.models.schemas import YouTubeURL
 from app.services.video import extract_video_info
-from app.services.database import get_database
 from app.utils.url import is_valid_youtube_url
 
 # Configure logging

@@ -4,6 +4,8 @@ Cache module for YouTube Summarizer backend.
 This module provides caching functionality for transcripts and other data
 using Redis as the caching layer. Cached data remains indefinitely until
 memory limits are reached, at which point a memory management strategy is applied.
+
+The module uses lazy initialization of Redis connections to improve startup time.
 """
 
 import json
@@ -13,6 +15,7 @@ from typing import Any, Dict, Optional
 import logging
 import redis.asyncio as redis
 from datetime import datetime, timezone
+import functools
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -38,10 +41,24 @@ redis_client = None
 # Connection pool settings
 REDIS_POOL_SIZE = int(os.getenv("REDIS_POOL_SIZE", 10))
 REDIS_POOL_TIMEOUT = int(os.getenv("REDIS_POOL_TIMEOUT", 30))
+# Flag to track if initialization has been attempted
+_init_attempted = False
+
+# Decorator for lazy Redis initialization
+def ensure_redis_connection(func):
+    """Decorator to ensure Redis connection is initialized before function execution."""
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        global redis_client, _init_attempted
+        if redis_client is None and not _init_attempted:
+            await init_redis()
+        return await func(*args, **kwargs)
+    return wrapper
 
 async def init_redis():
     """Initialize Redis connection with connection pooling."""
-    global redis_client
+    global redis_client, _init_attempted
+    _init_attempted = True
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     try:
         # Create Redis client with connection pool for better performance
@@ -69,6 +86,7 @@ async def init_redis():
         return redis_client
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
+        redis_client = None
         return None
 
 async def close_redis():
@@ -91,6 +109,7 @@ def generate_cache_key(prefix: str, identifier: str) -> str:
     """
     return f"{prefix}:{identifier}"
 
+@ensure_redis_connection
 async def set_cache(key: str, value: Any, ttl: Optional[int] = None) -> bool:
     """
     Set a value in the cache with optional expiration.
@@ -141,6 +160,7 @@ async def set_cache(key: str, value: Any, ttl: Optional[int] = None) -> bool:
         logger.error(f"Error setting cache for key {key}: {e}")
         return False
 
+@ensure_redis_connection
 async def check_memory_usage():
     """
     Check Redis memory usage and apply cleanup if needed.
@@ -173,6 +193,7 @@ async def check_memory_usage():
     except Exception as e:
         logger.error(f"Error checking memory usage: {e}")
 
+@ensure_redis_connection
 async def apply_lru_cleanup():
     """
     Apply Least Recently Used (LRU) cleanup strategy to free up memory.
@@ -256,6 +277,7 @@ async def apply_lru_cleanup():
     except Exception as e:
         logger.error(f"Error applying LRU cleanup: {e}")
 
+@ensure_redis_connection
 async def get_cache(key: str, update_access_stats: bool = True) -> Optional[Any]:
     """
     Get a value from the cache.
@@ -298,6 +320,7 @@ async def get_cache(key: str, update_access_stats: bool = True) -> Optional[Any]
         logger.error(f"Error getting cache for key {key}: {e}")
         return None
 
+@ensure_redis_connection
 async def delete_cache(key: str) -> bool:
     """
     Delete a value from the cache.
@@ -320,6 +343,7 @@ async def delete_cache(key: str) -> bool:
         logger.error(f"Error deleting cache for key {key}: {e}")
         return False
 
+@ensure_redis_connection
 async def clear_cache() -> bool:
     """
     Clear all cache.
@@ -423,6 +447,7 @@ async def get_cached_languages(video_id: str) -> Optional[Dict[str, Any]]:
     key = generate_cache_key(PREFIX_LANGUAGES, video_id)
     return await get_cache(key)
 
+@ensure_redis_connection
 async def get_cache_stats() -> Dict[str, Any]:
     """
     Get detailed cache statistics.

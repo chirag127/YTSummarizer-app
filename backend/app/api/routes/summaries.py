@@ -11,7 +11,7 @@ from bson import ObjectId
 from app.models.schemas import YouTubeURL, Summary, SummaryResponse, SummaryUpdate, StarUpdate
 from app.services.video import extract_video_info
 from app.services.summary import generate_summary
-from app.services.database import get_database
+from app.services.database import get_database, ensure_indexes
 from app.utils.url import is_valid_youtube_url
 from app.utils.time import get_utc_now
 
@@ -27,6 +27,8 @@ async def create_summary(youtube_url: YouTubeURL, db=Depends(get_database), x_us
 
     The user can optionally provide their own Gemini API key via the X-User-API-Key header.
     """
+    # Ensure database indexes are created
+    await ensure_indexes()
     url = str(youtube_url.url)
 
     if not is_valid_youtube_url(url):

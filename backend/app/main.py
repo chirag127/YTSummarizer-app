@@ -8,35 +8,27 @@ and includes all API routes.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import logging
 
 from app.api.routes import router
-from app.services.database import init_db, close_db
+from app.services.database import close_db
 from app.core import cache
-from app.config import logger
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """
     Lifespan context manager for FastAPI application.
     Handles startup and shutdown events for database connections and other resources.
+
+    Both MongoDB and Redis connections are now lazily initialized when needed.
     """
     try:
-        # Connect to MongoDB and initialize indexes
-        await init_db()
-        
-        # Initialize Redis cache
-        await cache.init_redis()
-
+        # Both MongoDB and Redis are now lazily initialized when needed
         yield  # This is where the app runs
-    except Exception as e:
-        logger.error(f"Failed to connect to MongoDB or Redis: {e}")
-        raise
     finally:
-        # Close MongoDB connection
+        # Close MongoDB connection if it was initialized
         await close_db()
 
-        # Close Redis connection
+        # Close Redis connection if it was initialized
         await cache.close_redis()
 
 # Initialize FastAPI app with lifespan

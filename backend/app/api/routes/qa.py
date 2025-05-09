@@ -10,7 +10,7 @@ import logging
 from app.models.schemas import VideoQARequest, VideoQAResponse, ChatMessage, ChatMessageRole
 from app.services.video import extract_video_info
 from app.services.qa import generate_qa_response
-from app.services.database import get_database
+from app.services.database import get_database, ensure_indexes
 from app.utils.time import get_utc_now
 from app.core import cache, token_management
 
@@ -23,6 +23,8 @@ router = APIRouter(prefix="/api/v1", tags=["qa"])
 @router.get("/videos/{video_id}/qa", response_model=VideoQAResponse)
 async def get_video_qa_history(video_id: str, db=Depends(get_database)):
     """Get conversation history for a specific video."""
+    # Ensure database indexes are created
+    await ensure_indexes()
     try:
         # Use projection to get only the fields we need
         chat_projection = {
