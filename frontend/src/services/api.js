@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getApiKey } from "./apiKeyService";
+import * as apiKeyService from "./apiKeyService";
 import NetInfo from "@react-native-community/netinfo";
 import * as storageService from "./storageService";
 import * as queueService from "./queueService";
@@ -25,7 +25,7 @@ const api = axios.create({
 api.interceptors.request.use(
     async (config) => {
         try {
-            const userApiKey = await getApiKey();
+            const userApiKey = await apiKeyService.getApiKey();
             if (userApiKey) {
                 config.headers["X-User-API-Key"] = userApiKey;
             }

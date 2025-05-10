@@ -1,6 +1,11 @@
 // export const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
 export const API_BASE_URL = "http://192.168.31.232:8000";
 
+// API Key Selection Modes
+export const API_KEY_SELECTION_MODES = [
+    { id: "specific", label: "Use Specific Key" },
+    { id: "random", label: "Use Random Key" },
+];
 
 // Summary Types
 export const SUMMARY_TYPES = [
