@@ -19,8 +19,6 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
   * `--no-playlist`
   * Provide complete yt-dlp configuration code
 - Implement transcript processing with:
-  * Chunking algorithm (max 1000 tokens per chunk)
-  * Batch processing with 5-second delays between batches
   * Provide complete implementation code
 - Implement request validation with:
   * Maximum URL length: 2048 characters
