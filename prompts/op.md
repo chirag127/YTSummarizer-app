@@ -198,5 +198,9 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
     - request control
     - configuration
     - performance testing
+4. don't change the google-genai code
+use context7 to use the google-genai code
+use context7 to use yt-dlp code
+
 
 Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application. Add the files in the project structure where they belong in backend\app folder. use sequential thinking.
