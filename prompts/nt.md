@@ -16,7 +16,9 @@ When a user clicks on the "New Type" button in the Summary screen and selects a 
 
 divide the frontend\src\screens\HistoryScreen.js,frontend\src\screens\HomeScreen.js,frontend\src\screens\QAScreen.js in modular pieces
 
-Refactor the frontend\src\screens\HistoryScreen.js,frontend\src\screens\HomeScreen.js,frontend\src\screens\QAScreen.js, frontend\src\screens\SummaryScreen.js component by dividing it into smaller, modular components to improve code organization and maintainability. Create separate component files for logical UI sections . Ensure each component has clear props interfaces, maintains the existing functionality, and follows React Native best practices. Update imports and exports accordingly to maintain the application's current behavior while improving its structure.
+frontend\src\screens\HistoryScreen.js,frontend\src\screens\HomeScreen.js,frontend\src\screens\QAScreen.js, frontend\src\screens\SummaryScreen.js
+
+Refactor the frontend\src\screens\SummaryScreen.js component by dividing it into smaller, modular components to improve code organization and maintainability. Create separate component files for logical UI sections . Ensure each component has clear props interfaces, maintains the existing functionality, and follows React Native best practices. Update imports and exports accordingly to maintain the application's current behavior while improving its structure.
 
 don't remove the text label from the test button.
 
