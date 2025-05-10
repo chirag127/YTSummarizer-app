@@ -187,5 +187,16 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
    - Test execution methods
    - Code formatting and linting rules
    - Deployment processes
+3. **Focus Areas:**
+    - memory management
+    - cpu efficiency
+    - asgi server configuration
+    - database optimization
+    - caching implementation
+    - computational optimization
+    - connection management
+    - request control
+    - configuration
+    - performance testing
 
 Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application. Add the files in the project structure where they belong in backend\app folder. use sequential thinking.
