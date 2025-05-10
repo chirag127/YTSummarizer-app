@@ -10,7 +10,7 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 - **Deployment**: the backend will be deployed on render.com with the following specifications:
   - **CPU**: 0.1 cores
   - **RAM**: 512MB
-  
+
 ## Required Optimizations
 
 ### 1. Memory Management
@@ -84,7 +84,6 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 ### 6. Computational Optimization
 - Optimize Gemini API integration:
   * Implement streaming responses
-  * Set maximum token limit: 1000 tokens
   * Implement retry logic with exponential backoff (max 3 retries)
   * Provide complete implementation code
 - Optimize video processing:
@@ -167,4 +166,26 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 5. Monitoring setup code for tracking resource usage in production
 6. Documentation explaining the rationale behind each optimization
 
-Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application. Add the files in the project structure where they belong in backend\app folder.
+## Requirements:
+
+1. **Preserve These Specific Functions Exactly As-Is:**
+   - `extract_video_info` function
+   - `generate_qa_response` function
+   - `generate_summary` function
+
+2. **Do Not Modify:**
+   - API endpoints and their functionality
+   - Environment variable loading mechanisms
+   - Database access patterns
+   - Redis cache access methods
+   - Logging implementation
+   - Error handling approaches
+   - Configuration loading
+   - Dependency management
+   - Server startup procedures
+   - API documentation generation
+   - Test execution methods
+   - Code formatting and linting rules
+   - Deployment processes
+
+Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application. Add the files in the project structure where they belong in backend\app folder. use sequential thinking.
