@@ -104,6 +104,7 @@ const SummaryScreen = ({ route, navigation }) => {
 
     // Handle cancel regeneration
     let handleCancel = () => {
+        // Immediately set loading to false to prevent further UI updates
         setIsLoading(false);
         setGenerationStartTime(null);
         setElapsedTime(0);
@@ -426,9 +427,6 @@ const SummaryScreen = ({ route, navigation }) => {
             const timeTaken = Math.floor((Date.now() - startTime) / 1000);
             newSummary.timeTaken = timeTaken > 0 ? timeTaken : 1; // Ensure at least 1 second is shown
 
-            // Close the edit modal
-            setEditModalVisible(false);
-
             // Refresh other summaries list
             const response = await getVideoSummaries(summary.video_url);
             const filteredSummaries = response.summaries.filter(
@@ -441,15 +439,13 @@ const SummaryScreen = ({ route, navigation }) => {
                 setShowOtherSummaries(true);
             }
 
+            // Update the route params with the new summary
             navigation.setParams({ summary: newSummary });
         } catch (error) {
             // Don't show error if it was cancelled
             if (error.name === "AbortError" || !isLoading) return;
 
             console.error("Error creating new summary:", error);
-
-            // Close the edit modal even if there's an error
-            setEditModalVisible(false);
 
             Alert.alert(
                 "Error",
@@ -459,8 +455,10 @@ const SummaryScreen = ({ route, navigation }) => {
             // Restore original cancel handler
             handleCancel = originalCancelHandler;
 
-            // Ensure the modal is closed in all cases
-            setEditModalVisible(false);
+            // Close the modal if we're still in loading state (i.e., the generation wasn't cancelled by user)
+            if (isLoading) {
+                setEditModalVisible(false);
+            }
 
             setIsLoading(false);
             setGenerationStartTime(null);
@@ -580,6 +578,7 @@ const SummaryScreen = ({ route, navigation }) => {
                                     style={styles.cancelButton}
                                     onPress={() => {
                                         handleCancel();
+                                        // Close the modal when the user cancels the generation
                                         setEditModalVisible(false);
                                     }}
                                 >
