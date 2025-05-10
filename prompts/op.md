@@ -6,10 +6,8 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 
 ## Environment Specifications
 - **CPU**: Limited to 0.1 CPU cores (equivalent to 10% of a single core)
-- **RAM**: Maximum 512MB total memory allocation
 - **Deployment**: the backend will be deployed on render.com with the following specifications:
   - **CPU**: 0.1 cores
-  - **RAM**: 512MB
 
 ## Required Optimizations
 
@@ -201,6 +199,7 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 4. don't change the google-genai code
 use context7 to use the google-genai code
 use context7 to use yt-dlp code
-
+use context7 to use the redis code
+use context7 to use the mongodb code
 
 Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application. Add the files in the project structure where they belong in backend\app folder. use sequential thinking.
