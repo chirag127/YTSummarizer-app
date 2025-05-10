@@ -121,10 +121,6 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
   * For video processing: 2 concurrent requests maximum
   * For AI summarization: 1 request at a time
   * Provide complete throttling implementation
-- Implement priority-based processing:
-  * Priority levels: High (premium users), Medium (registered users), Low (anonymous)
-  * Resource allocation: 60% high, 30% medium, 10% low
-  * Provide complete priority queue implementation
 
 ### 9. Configuration
 - Provide environment-specific configuration files:
@@ -169,4 +165,4 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 5. Monitoring setup code for tracking resource usage in production
 6. Documentation explaining the rationale behind each optimization
 
-Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application.
+Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application. add the files in the project structure where they belong in backend\app folder.
