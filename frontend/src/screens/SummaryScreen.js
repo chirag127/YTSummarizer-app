@@ -362,19 +362,8 @@ const SummaryScreen = ({ route, navigation }) => {
                 // A summary with these parameters already exists
                 setEditModalVisible(false);
 
-                // Navigate to the existing summary
+                // Silently navigate to the existing summary without showing an alert
                 handleNavigateToSummary(existingSummary);
-
-                // Show notification
-                Alert.alert(
-                    "Summary Already Exists",
-                    `A summary with type "${formatSummaryType(
-                        selectedType
-                    )}" and length "${formatSummaryLength(
-                        selectedLength
-                    )}" already exists for this video. Showing the existing summary instead.`
-                );
-
                 return;
             }
         } catch (error) {
