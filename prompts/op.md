@@ -11,14 +11,6 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 
 ## Required Optimizations
 
-### 1. Memory Management
-- Implement a Python memory monitoring utility that logs usage at 1-minute intervals
-- Configure Redis with:
-  * `maxmemory-policy allkeys-lru`
-  * Provide complete redis.conf file with all memory-related parameters
-- Set MongoDB connection pool to maximum 5 connections
-- Implement request rejection middleware that activates when memory usage exceeds 90% (460MB)
-- Provide code for graceful degradation that disables non-essential features when memory exceeds 80% (410MB)
 
 ### 2. CPU Efficiency
 - Optimize yt-dlp integration with specific flags:
@@ -40,7 +32,6 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 - Configure Uvicorn with:
   * Workers: 2 (fixed, not dynamic)
   * Worker class: `uvicorn.workers.UvicornWorker`
-  * Memory per worker: 200MB maximum
   * Timeout: 120 seconds
   * Backlog: 10
   * Provide complete uvicorn configuration file
@@ -70,7 +61,7 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
   * Provide complete Redis configuration code
 - Implement multi-level caching:
   * In-memory LRU cache (10MB maximum)
-  * Redis cache (128MB maximum)
+  * Redis cache (30MB maximum)
   * Provide complete implementation code
 - Design cache keys following pattern: `{resource_type}:{id}:{version}`
 - Implement cache invalidation triggered by:
@@ -117,8 +108,8 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
   * Per endpoint: Custom limits based on resource intensity
   * Provide complete rate limiting middleware code
 - Implement request throttling:
-  * For video processing: 2 concurrent requests maximum
-  * For AI summarization: 1 request at a time
+  * For video processing: 5 concurrent requests maximum
+  * For AI summarization: 5 request at a time
   * Provide complete throttling implementation
 
 ### 9. Configuration
@@ -166,7 +157,7 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 
 ## Requirements:
 
-1. **Preserve These Specific Functions Exactly As-Is:**
+1. **Preserve These Specific Functions functionality:**
    - `extract_video_info` function
    - `generate_qa_response` function
    - `generate_summary` function
