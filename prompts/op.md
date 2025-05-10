@@ -2,7 +2,7 @@
 # FastAPI Backend Optimization for Resource-Constrained Environments
 
 ## Context and Objective
-Optimize a YouTube summarizer FastAPI backend application to operate efficiently within extremely limited resources. The application currently uses yt-dlp for video processing, Gemini API for AI processing, and MongoDB/Redis for data storage and caching.
+Optimize a YouTube summarizer FastAPI backend application to operate efficiently within extremely limited resources. The application currently uses yt-dlp for video processing, Gemini API for AI processing, and MongoDB/Redis for data storage and caching. Add the files in the project structure where they belong in backend\app folder.
 
 ## Environment Specifications
 - **CPU**: Limited to 0.1 CPU cores (equivalent to 10% of a single core)
@@ -165,4 +165,4 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 5. Monitoring setup code for tracking resource usage in production
 6. Documentation explaining the rationale behind each optimization
 
-Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application. add the files in the project structure where they belong in backend\app folder.
+Please analyze the current FastAPI implementation and provide these specific optimizations with working code examples that can be directly implemented in the application. Add the files in the project structure where they belong in backend\app folder.
