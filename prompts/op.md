@@ -7,8 +7,10 @@ Optimize a YouTube summarizer FastAPI backend application to operate efficiently
 ## Environment Specifications
 - **CPU**: Limited to 0.1 CPU cores (equivalent to 10% of a single core)
 - **RAM**: Maximum 512MB total memory allocation
-- **Deployment**: Assume containerized deployment (Docker)
-
+- **Deployment**: the backend will be deployed on render.com with the following specifications:
+  - **CPU**: 0.1 cores
+  - **RAM**: 512MB
+  
 ## Required Optimizations
 
 ### 1. Memory Management
