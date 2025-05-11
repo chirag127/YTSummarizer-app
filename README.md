@@ -2,15 +2,12 @@
 
 A cross-platform application that generates concise summaries of YouTube videos using Gemini 2.0 Flash-Lite AI and provides text-to-speech capabilities.
 
-
 eas build -p android --profile preview
 
 ## deploy to netlify
 
 npx expo export -p web
 netlify deploy --prod --dir dist
-
-
 
 ## Features
 
@@ -19,6 +16,7 @@ netlify deploy --prod --dir dist
 -   Listen to summaries using text-to-speech with adjustable settings
 -   View, manage, and share your history of generated summaries
 -   Works on iOS, Android, and Web (as a Progressive Web App)
+-   Automatic backend server wake-up on app launch to reduce response times
 
 ## Tech Stack
 
@@ -116,6 +114,16 @@ The app supports receiving YouTube links shared directly from other apps (like Y
 -   On Android, the app appears in the share sheet when sharing links from other apps
 -   When a YouTube link is shared with the app, it automatically opens and begins the summarization process
 -   See the [SHARING_FUNCTIONALITY.md](SHARING_FUNCTIONALITY.md) file for more details on implementation
+
+## Backend Wake-up Call Feature
+
+The app includes a proactive backend server wake-up mechanism:
+
+-   Automatically pings the backend server when the app launches
+-   Implements retry logic with exponential backoff (5 attempts)
+-   Provides subtle UI feedback about the connection status
+-   Runs silently in the background without blocking the app's UI
+-   Reduces response time for the user's first actual request by waking the server from its sleep state
 
 ## License
 

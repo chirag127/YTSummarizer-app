@@ -1,4 +1,5 @@
-export const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
+export const API_BASE_URL =
+    "https://ytsummarizer2-react-native-expo-app.onrender.com";
 // export const API_BASE_URL = "http://192.168.31.232:8000";
 
 // API Key Selection Modes
@@ -27,6 +28,7 @@ export const COLORS = {
     primary: "#4285F4", // Google Blue
     secondary: "#34A853", // Google Green
     accent: "#FBBC05", // Google Yellow
+    warning: "#FBBC05", // Google Yellow (same as accent)
     error: "#EA4335", // Google Red
     success: "#34A853", // Google Green
     background: "#FFFFFF", // White
