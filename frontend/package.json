@@ -44,6 +44,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "babel-plugin-transform-remove-console": "^6.9.4",
     "jsdom": "^26.1.0",
     "sharp": "^0.34.1",
     "svg-pathdata": "^7.2.0"

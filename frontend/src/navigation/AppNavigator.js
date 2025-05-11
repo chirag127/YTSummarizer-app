@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { Linking } from "react-native";
+import { Linking, View, Text } from "react-native";
 
 // Import screens
 import HomeScreen from "../screens/HomeScreen";
@@ -168,46 +168,102 @@ const AppNavigator = () => {
         };
     }, []);
 
-    return (
-        <NavigationContainer ref={navigationRef}>
-            <Tab.Navigator
-                screenOptions={({ route }) => ({
-                    tabBarIcon: ({ color, size }) => {
-                        const iconName = TAB_ICONS[route.name] || "help-circle";
-                        return (
-                            <Ionicons
-                                name={iconName}
-                                size={size}
-                                color={color}
-                            />
-                        );
-                    },
-                    tabBarActiveTintColor: COLORS.primary,
-                    tabBarInactiveTintColor: COLORS.textSecondary,
-                    headerShown: route.name !== SCREENS.HOME,
-                })}
+    // Wrap the navigation container in a try-catch block to catch any rendering errors
+    try {
+        return (
+            <NavigationContainer
+                ref={navigationRef}
+                fallback={
+                    <View
+                        style={{ flex: 1, backgroundColor: COLORS.background }}
+                    />
+                }
+                onError={(error) => {
+                    console.error("Navigation error:", error);
+                }}
             >
-                <Tab.Screen
-                    name="HomeTab"
-                    component={HomeStackNavigator}
-                    options={{
-                        headerShown: false,
-                        title: "Home",
+                <Tab.Navigator
+                    screenOptions={({ route }) => ({
+                        tabBarIcon: ({ color, size }) => {
+                            try {
+                                const iconName =
+                                    TAB_ICONS[route.name] || "help-circle";
+                                return (
+                                    <Ionicons
+                                        name={iconName}
+                                        size={size}
+                                        color={color}
+                                    />
+                                );
+                            } catch (error) {
+                                console.error(
+                                    "Error rendering tab icon:",
+                                    error
+                                );
+                                return null;
+                            }
+                        },
+                        tabBarActiveTintColor: COLORS.primary,
+                        tabBarInactiveTintColor: COLORS.textSecondary,
+                        headerShown: route.name !== SCREENS.HOME,
+                    })}
+                >
+                    <Tab.Screen
+                        name="HomeTab"
+                        component={HomeStackNavigator}
+                        options={{
+                            headerShown: false,
+                            title: "Home",
+                        }}
+                    />
+                    <Tab.Screen
+                        name={SCREENS.HISTORY}
+                        component={HistoryScreen}
+                        options={{ title: "History" }}
+                    />
+                    <Tab.Screen
+                        name={SCREENS.SETTINGS}
+                        component={SettingsScreen}
+                        options={{ title: "Settings" }}
+                    />
+                </Tab.Navigator>
+            </NavigationContainer>
+        );
+    } catch (error) {
+        console.error("Fatal error in AppNavigator:", error);
+        // Return a minimal fallback UI
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: COLORS.background,
+                }}
+            >
+                <Text
+                    style={{
+                        color: COLORS.error,
+                        fontSize: 16,
+                        marginBottom: 10,
                     }}
-                />
-                <Tab.Screen
-                    name={SCREENS.HISTORY}
-                    component={HistoryScreen}
-                    options={{ title: "History" }}
-                />
-                <Tab.Screen
-                    name={SCREENS.SETTINGS}
-                    component={SettingsScreen}
-                    options={{ title: "Settings" }}
-                />
-            </Tab.Navigator>
-        </NavigationContainer>
-    );
+                >
+                    Navigation Error
+                </Text>
+                <Text
+                    style={{
+                        color: COLORS.text,
+                        fontSize: 14,
+                        textAlign: "center",
+                        paddingHorizontal: 20,
+                    }}
+                >
+                    There was a problem loading the app. Please restart the
+                    application.
+                </Text>
+            </View>
+        );
+    }
 };
 
 export default AppNavigator;

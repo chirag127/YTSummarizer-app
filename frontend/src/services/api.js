@@ -871,6 +871,16 @@ export const getVideoQAHistory = async (videoId, forceTranscript = false) => {
 };
 
 export const askVideoQuestion = async (videoId, question, history = []) => {
+    // Create user message object
+    const userMessage = {
+        role: "user",
+        content: question,
+        timestamp: new Date().toISOString(),
+    };
+
+    // Create a new history array with the user's message included
+    const updatedHistory = [...history, userMessage];
+
     // Check network status
     const netInfo = await NetInfo.fetch();
     const isNetworkAvailable =
@@ -883,12 +893,7 @@ export const askVideoQuestion = async (videoId, question, history = []) => {
             video_title: "Offline Mode",
             video_thumbnail_url: null,
             history: [
-                ...history,
-                {
-                    role: "user",
-                    content: question,
-                    timestamp: new Date().toISOString(),
-                },
+                ...updatedHistory,
                 {
                     role: "model",
                     content:
@@ -908,6 +913,27 @@ export const askVideoQuestion = async (videoId, question, history = []) => {
             history: history.length > 0 ? history : undefined,
         });
 
+        // Check if the response already includes the user's message
+        const responseHistory = response.data.history || [];
+        const lastUserMessage = responseHistory.findLast(
+            (msg) => msg.role === "user"
+        );
+
+        // If the last user message in the response doesn't match our question,
+        // we need to ensure our user message is included
+        if (!lastUserMessage || lastUserMessage.content !== question) {
+            // Create a new response with our user message included
+            return {
+                ...response.data,
+                history: [
+                    ...updatedHistory,
+                    ...responseHistory.filter(
+                        (msg) => msg.role !== "user" || msg.content !== question
+                    ),
+                ],
+            };
+        }
+
         return response.data;
     } catch (error) {
         console.error(`Error asking question for video ID ${videoId}:`, error);
@@ -918,12 +944,7 @@ export const askVideoQuestion = async (videoId, question, history = []) => {
             video_title: "Error",
             video_thumbnail_url: null,
             history: [
-                ...history,
-                {
-                    role: "user",
-                    content: question,
-                    timestamp: new Date().toISOString(),
-                },
+                ...updatedHistory,
                 {
                     role: "model",
                     content: `I'm sorry, but there was an error processing your question: ${error.message}. Please try again later.`,

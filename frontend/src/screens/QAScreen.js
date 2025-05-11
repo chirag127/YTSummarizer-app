@@ -411,15 +411,20 @@ const QAScreen = ({ route, navigation }) => {
         const question = inputText.trim();
         setInputText(""); // Clear input
 
-        // Add user message to chat
+        // Create a unique ID for the user message
+        const userMessageId = `user-${Date.now()}-${Math.random()
+            .toString(36)
+            .substring(2, 11)}`;
+
+        // Add user message to chat - this will remain visible during the API call
         const userMessage = {
-            id: `user-${Date.now()}-${Math.random()
-                .toString(36)
-                .substring(2, 11)}`,
+            id: userMessageId,
             content: question,
             role: "user",
             timestamp: new Date().toISOString(),
         };
+
+        // Update messages state with the user message
         setMessages((prev) => [...prev, userMessage]);
 
         // Show loading state
@@ -433,10 +438,15 @@ const QAScreen = ({ route, navigation }) => {
         setQuestionData(trackingData);
 
         try {
+            // Get current messages to pass to API
+            // We need to capture the current state before adding the user message
+            // to avoid duplicating it in the API call
+            const currentMessages = [...messages];
+
             const response = await askVideoQuestion(
                 videoId,
                 question,
-                messages
+                currentMessages
             );
 
             // Extract token counts from response
@@ -455,18 +465,13 @@ const QAScreen = ({ route, navigation }) => {
 
             // Check if response contains history with the AI's answer
             if (response.history && response.history.length > 0) {
-                // The backend returns the full conversation history including the new AI response
-                // The last message in the history array should be the AI's response
-                const aiResponse =
-                    response.history[response.history.length - 1];
+                // Find the AI response (should be the last message from the model/assistant)
+                const aiResponse = response.history.findLast(
+                    (msg) => msg.role === "model" || msg.role === "assistant"
+                );
 
-                // Only add the AI response if it's not already in our messages
-                // and it's from the model/assistant
-                if (
-                    aiResponse &&
-                    (aiResponse.role === "model" ||
-                        aiResponse.role === "assistant")
-                ) {
+                // Only add the AI response if it exists and is from the model/assistant
+                if (aiResponse) {
                     const aiMessage = {
                         id:
                             aiResponse.id ||
@@ -483,7 +488,26 @@ const QAScreen = ({ route, navigation }) => {
                     };
 
                     console.log("Adding AI response to chat:", aiMessage);
-                    setMessages((prev) => [...prev, aiMessage]);
+
+                    // Update messages with the AI response
+                    // We use a function to ensure we're working with the latest state
+                    setMessages((prevMessages) => {
+                        // Check if our user message is still in the messages array
+                        const hasUserMessage = prevMessages.some(
+                            (msg) =>
+                                msg.id === userMessageId ||
+                                (msg.role === "user" &&
+                                    msg.content === question)
+                        );
+
+                        // If the user message is missing, add it back along with the AI response
+                        if (!hasUserMessage) {
+                            return [...prevMessages, userMessage, aiMessage];
+                        }
+
+                        // Otherwise, just add the AI response
+                        return [...prevMessages, aiMessage];
+                    });
 
                     // Track answer received
                     if (!response.isOffline) {

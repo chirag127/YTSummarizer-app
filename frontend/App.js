@@ -1,7 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { StyleSheet, View, Platform, Linking } from "react-native";
+import { StyleSheet, View, Platform, Linking, Text } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import AppNavigator from "./src/navigation/AppNavigator";
 import * as IntentLauncher from "expo-intent-launcher";
 import { NetworkProvider } from "./src/context/NetworkContext";
@@ -9,6 +10,7 @@ import { TimeZoneProvider } from "./src/context/TimeZoneContext";
 import NetworkStatusIndicator from "./src/components/NetworkStatusIndicator";
 import * as cacheService from "./src/services/cacheService";
 import { registerBackgroundTasks } from "./src/tasks/backgroundTasks";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 
 export default function App() {
     // Initialize cache and register background tasks
@@ -63,17 +65,21 @@ export default function App() {
     }, []);
 
     return (
-        <NetworkProvider>
-            <TimeZoneProvider>
-                <GestureHandlerRootView style={styles.container}>
-                    <View style={styles.container}>
-                        <StatusBar style="auto" />
-                        <NetworkStatusIndicator />
-                        <AppNavigator />
-                    </View>
-                </GestureHandlerRootView>
-            </TimeZoneProvider>
-        </NetworkProvider>
+        <ErrorBoundary>
+            <SafeAreaProvider>
+                <NetworkProvider>
+                    <TimeZoneProvider>
+                        <GestureHandlerRootView style={styles.container}>
+                            <View style={styles.container}>
+                                <StatusBar style="auto" />
+                                <NetworkStatusIndicator />
+                                <AppNavigator />
+                            </View>
+                        </GestureHandlerRootView>
+                    </TimeZoneProvider>
+                </NetworkProvider>
+            </SafeAreaProvider>
+        </ErrorBoundary>
     );
 }
 
