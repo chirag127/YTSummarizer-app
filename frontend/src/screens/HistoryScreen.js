@@ -1,18 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import {
-    StyleSheet,
-    View,
-    Text,
-    FlatList,
-    Image,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    Switch,
-    TextInput,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { StyleSheet, View, Alert } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 // Import components, services, and utilities
@@ -21,9 +8,20 @@ import {
     deleteSummary,
     toggleStarSummary,
 } from "../services/api";
-import { formatDateWithOptions } from "../utils";
-import { COLORS, SPACING, FONT_SIZES, SCREENS, SHADOWS } from "../constants";
+import { COLORS, SPACING, SCREENS } from "../constants";
 import { useTimeZone } from "../context/TimeZoneContext";
+
+// Import custom hooks
+import useHistoryPagination from "../hooks/useHistoryPagination";
+import useHistorySearch from "../hooks/useHistorySearch";
+import useHistoryFilters from "../hooks/useHistoryFilters";
+
+// Import components
+import {
+    SearchBar,
+    FilterControls,
+    HistoryList,
+} from "../components/history";
 
 const HistoryScreen = ({ navigation }) => {
     // State
@@ -32,8 +30,6 @@ const HistoryScreen = ({ navigation }) => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [error, setError] = useState(null);
-    const [showStarredOnly, setShowStarredOnly] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 100,
@@ -44,7 +40,7 @@ const HistoryScreen = ({ navigation }) => {
     });
 
     // Get time zone context
-    const { getCurrentTimeZone, formatDateWithTimeZone } = useTimeZone();
+    const { formatDateWithTimeZone } = useTimeZone();
 
     // Fetch summaries
     const fetchSummaries = async (showRefreshing = false, page = 1) => {
@@ -92,12 +88,18 @@ const HistoryScreen = ({ navigation }) => {
         }
     };
 
-    // Load more summaries
-    const loadMoreSummaries = () => {
-        if (pagination.has_next && !isLoadingMore) {
-            fetchSummaries(false, pagination.page + 1);
-        }
-    };
+    // Custom hooks
+    const { loadMoreSummaries } = useHistoryPagination({
+        pagination,
+        isLoadingMore,
+        fetchSummaries,
+    });
+
+    const { searchQuery, handleSearchChange, handleClearSearch } =
+        useHistorySearch();
+
+    const { showStarredOnly, setShowStarredOnly, filteredSummaries } =
+        useHistoryFilters(summaries, searchQuery);
 
     // Initial fetch
     useEffect(() => {
@@ -112,13 +114,13 @@ const HistoryScreen = ({ navigation }) => {
     );
 
     // Handle refresh
-    const handleRefresh = () => {
+    const handleRefresh = useCallback(() => {
         // Reset to page 1 when refreshing
         setPagination((prev) => ({ ...prev, page: 1 }));
         // Clear search query when refreshing
-        setSearchQuery("");
+        handleClearSearch();
         fetchSummaries(true, 1);
-    };
+    }, [setPagination, handleClearSearch, fetchSummaries]);
 
     // Handle delete
     const handleDelete = (id) => {
@@ -191,286 +193,53 @@ const HistoryScreen = ({ navigation }) => {
         }
     };
 
-    // Filter summaries based on search query and star filter
-    const filteredSummaries = summaries.filter((summary) => {
-        // Apply star filter
-        if (showStarredOnly && !summary.is_starred) {
-            return false;
-        }
+    // Note: Rendering is now handled by the modular components
 
-        // Apply search filter if there's a query
-        if (searchQuery.trim() !== "") {
-            const query = searchQuery.toLowerCase();
-            return (
-                (summary.video_title &&
-                    summary.video_title.toLowerCase().includes(query)) ||
-                (summary.summary_text &&
-                    summary.summary_text.toLowerCase().includes(query))
-            );
-        }
+    // Note: Search functionality is now handled by the useHistorySearch hook
 
-        return true;
-    });
+    // Handle press item
+    const handlePressItem = useCallback(
+        (item) => {
+            navigation.navigate(SCREENS.SUMMARY, { summary: item });
+        },
+        [navigation]
+    );
 
-    // Render footer component (load more indicator)
-    const renderFooter = () => {
-        if (!pagination.has_next) return null;
-
-        return (
-            <View style={styles.footerContainer}>
-                {isLoadingMore ? (
-                    <ActivityIndicator size="small" color={COLORS.primary} />
-                ) : (
-                    <TouchableOpacity
-                        style={styles.loadMoreButton}
-                        onPress={loadMoreSummaries}
-                    >
-                        <Text style={styles.loadMoreButtonText}>Load More</Text>
-                    </TouchableOpacity>
-                )}
-                <Text style={styles.paginationInfo}>
-                    Page {pagination.page} of {pagination.total_pages}
-                </Text>
-            </View>
-        );
-    };
-
-    // Render summary item
-    const renderSummaryItem = ({ item }) => {
-        return (
-            <TouchableOpacity
-                style={styles.summaryItem}
-                onPress={() =>
-                    navigation.navigate(SCREENS.SUMMARY, { summary: item })
-                }
-            >
-                <Image
-                    source={{
-                        uri:
-                            item.video_thumbnail_url ||
-                            "https://via.placeholder.com/480x360?text=No+Thumbnail",
-                    }}
-                    style={styles.thumbnail}
-                    resizeMode="cover"
-                />
-                <View style={styles.summaryInfo}>
-                    <Text style={styles.summaryTitle} numberOfLines={2}>
-                        {item.video_title || "Untitled Video"}
-                    </Text>
-                    <Text style={styles.summaryDate}>
-                        {formatDateWithTimeZone(item.created_at)}
-                    </Text>
-                    <View style={styles.summaryTypeContainer}>
-                        <View style={[styles.badge, styles.typeBadge]}>
-                            <Text style={styles.badgeText}>
-                                {item.summary_type}
-                            </Text>
-                        </View>
-                        <View style={[styles.badge, styles.lengthBadge]}>
-                            <Text style={styles.badgeText}>
-                                {item.summary_length}
-                            </Text>
-                        </View>
-                    </View>
-                </View>
-                <View style={styles.actionsContainer}>
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() =>
-                            handleToggleStar(item.id, item.is_starred)
-                        }
-                    >
-                        <Ionicons
-                            name={item.is_starred ? "star" : "star-outline"}
-                            size={20}
-                            color={
-                                item.is_starred
-                                    ? COLORS.accent
-                                    : COLORS.textSecondary
-                            }
-                        />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleDelete(item.id)}
-                    >
-                        <Ionicons
-                            name="trash-outline"
-                            size={20}
-                            color={COLORS.error}
-                        />
-                    </TouchableOpacity>
-                </View>
-            </TouchableOpacity>
-        );
-    };
-
-    // Render empty state
-    const renderEmptyState = () => {
-        if (isLoading) {
-            return (
-                <View style={styles.emptyContainer}>
-                    <ActivityIndicator size={36} color={COLORS.primary} />
-                    <Text style={styles.emptyText}>Loading summaries...</Text>
-                </View>
-            );
-        }
-
-        if (error) {
-            return (
-                <View style={styles.emptyContainer}>
-                    <Ionicons
-                        name="alert-circle-outline"
-                        size={48}
-                        color={COLORS.error}
-                    />
-                    <Text style={styles.emptyText}>{error}</Text>
-                    <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={() => fetchSummaries()}
-                    >
-                        <Text style={styles.retryButtonText}>Retry</Text>
-                    </TouchableOpacity>
-                </View>
-            );
-        }
-
-        // If we have summaries but none match the search query
-        if (
-            summaries.length > 0 &&
-            filteredSummaries.length === 0 &&
-            searchQuery.trim() !== ""
-        ) {
-            return (
-                <View style={styles.emptyContainer}>
-                    <Ionicons
-                        name="search-outline"
-                        size={48}
-                        color={COLORS.textSecondary}
-                    />
-                    <Text style={styles.emptyText}>No matching summaries</Text>
-                    <Text style={styles.emptySubtext}>
-                        No summaries match your search query
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={handleClearSearch}
-                    >
-                        <Text style={styles.retryButtonText}>Clear Search</Text>
-                    </TouchableOpacity>
-                </View>
-            );
-        }
-
-        return (
-            <View style={styles.emptyContainer}>
-                <Ionicons
-                    name="document-text-outline"
-                    size={48}
-                    color={COLORS.textSecondary}
-                />
-                <Text style={styles.emptyText}>No summaries yet</Text>
-                <Text style={styles.emptySubtext}>
-                    Summaries you generate will appear here
-                </Text>
-                <View style={styles.emptyButtonsContainer}>
-                    <TouchableOpacity
-                        style={styles.reloadButton}
-                        onPress={() => fetchSummaries()}
-                    >
-                        <Ionicons
-                            name="refresh-outline"
-                            size={20}
-                            color={COLORS.background}
-                        />
-                        <Text style={styles.reloadButtonText}>Reload</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.newSummaryButton}
-                        onPress={() => navigation.navigate("HomeTab")}
-                    >
-                        <Text style={styles.newSummaryButtonText}>
-                            Create New Summary
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    };
-
-    // Handle search input change
-    const handleSearchChange = (text) => {
-        setSearchQuery(text);
-    };
-
-    // Clear search
-    const handleClearSearch = () => {
-        setSearchQuery("");
-    };
+    // Handle create new
+    const handleCreateNew = useCallback(() => {
+        navigation.navigate("HomeTab");
+    }, [navigation]);
 
     return (
         <View style={styles.container}>
-            <View style={styles.filterContainer}>
-                <Text style={styles.filterLabel}>Show Starred Only</Text>
-                <Switch
-                    value={showStarredOnly}
-                    onValueChange={setShowStarredOnly}
-                    trackColor={{
-                        false: COLORS.disabled,
-                        true: COLORS.primary,
-                    }}
-                    thumbColor={COLORS.background}
-                />
-            </View>
+            <FilterControls
+                showStarredOnly={showStarredOnly}
+                onToggleStarredFilter={setShowStarredOnly}
+            />
 
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <View style={styles.searchInputContainer}>
-                    <Ionicons
-                        name="search"
-                        size={20}
-                        color={COLORS.textSecondary}
-                        style={styles.searchIcon}
-                    />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search summaries..."
-                        placeholderTextColor={COLORS.textSecondary}
-                        value={searchQuery}
-                        onChangeText={handleSearchChange}
-                    />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity
-                            onPress={handleClearSearch}
-                            style={styles.clearButton}
-                        >
-                            <Ionicons
-                                name="close-circle"
-                                size={20}
-                                color={COLORS.textSecondary}
-                            />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
+            <SearchBar
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchChange}
+                onClearSearch={handleClearSearch}
+            />
 
-            <FlatList
-                data={filteredSummaries}
-                renderItem={renderSummaryItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContent}
-                ListEmptyComponent={renderEmptyState}
-                ListFooterComponent={renderFooter}
-                onEndReached={loadMoreSummaries}
-                onEndReachedThreshold={0.3}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={isRefreshing}
-                        onRefresh={handleRefresh}
-                        colors={[COLORS.primary]}
-                        tintColor={COLORS.primary}
-                    />
-                }
+            <HistoryList
+                summaries={filteredSummaries}
+                isLoading={isLoading}
+                isRefreshing={isRefreshing}
+                isLoadingMore={isLoadingMore}
+                error={error}
+                pagination={pagination}
+                searchQuery={searchQuery}
+                allSummaries={summaries}
+                onRefresh={handleRefresh}
+                onLoadMore={loadMoreSummaries}
+                onPressItem={handlePressItem}
+                onToggleStar={handleToggleStar}
+                onDelete={handleDelete}
+                onClearSearch={handleClearSearch}
+                onCreateNew={handleCreateNew}
+                formatDate={formatDateWithTimeZone}
             />
         </View>
     );
@@ -480,199 +249,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: COLORS.background,
-    },
-    listContent: {
         padding: SPACING.md,
-        flexGrow: 1,
-    },
-    summaryItem: {
-        flexDirection: "row",
-        backgroundColor: COLORS.surface,
-        borderRadius: 8,
-        marginBottom: SPACING.md,
-        overflow: "hidden",
-        ...SHADOWS.small,
-    },
-    thumbnail: {
-        width: 100,
-        height: 80,
-    },
-    summaryInfo: {
-        flex: 1,
-        padding: SPACING.sm,
-        justifyContent: "space-between",
-    },
-    summaryTitle: {
-        fontSize: FONT_SIZES.md,
-        fontWeight: "500",
-        color: COLORS.text,
-        marginBottom: 4,
-    },
-    summaryDate: {
-        fontSize: FONT_SIZES.xs,
-        color: COLORS.textSecondary,
-        marginBottom: 4,
-    },
-    summaryTypeContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 4,
-        gap: 8,
-    },
-    badge: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    typeBadge: {
-        backgroundColor: COLORS.primary,
-    },
-    lengthBadge: {
-        backgroundColor: COLORS.secondary,
-    },
-    badgeText: {
-        fontSize: FONT_SIZES.xs,
-        color: "white",
-        fontWeight: "500",
-    },
-    actionsContainer: {
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: SPACING.xs,
-    },
-    actionButton: {
-        padding: SPACING.sm,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    filterContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.sm,
-        backgroundColor: COLORS.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-    },
-    filterLabel: {
-        fontSize: FONT_SIZES.md,
-        color: COLORS.text,
-        fontWeight: "500",
-    },
-    // Search styles
-    searchContainer: {
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.sm,
-        backgroundColor: COLORS.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-    },
-    searchInputContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: COLORS.background,
-        borderRadius: 8,
-        paddingHorizontal: SPACING.sm,
-        height: 40,
-        ...SHADOWS.tiny,
-    },
-    searchIcon: {
-        marginRight: SPACING.xs,
-    },
-    searchInput: {
-        flex: 1,
-        height: 40,
-        color: COLORS.text,
-        fontSize: FONT_SIZES.md,
-    },
-    clearButton: {
-        padding: SPACING.xs,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: SPACING.xl,
-        minHeight: 300,
-    },
-    emptyText: {
-        fontSize: FONT_SIZES.lg,
-        color: COLORS.text,
-        marginTop: SPACING.md,
-        textAlign: "center",
-    },
-    emptySubtext: {
-        fontSize: FONT_SIZES.md,
-        color: COLORS.textSecondary,
-        marginTop: SPACING.sm,
-        textAlign: "center",
-    },
-    emptyButtonsContainer: {
-        flexDirection: "row",
-        marginTop: SPACING.lg,
-        gap: SPACING.md,
-    },
-    newSummaryButton: {
-        backgroundColor: COLORS.primary,
-        paddingVertical: SPACING.sm,
-        paddingHorizontal: SPACING.lg,
-        borderRadius: 8,
-    },
-    newSummaryButtonText: {
-        color: COLORS.background,
-        fontSize: FONT_SIZES.md,
-        fontWeight: "600",
-    },
-    reloadButton: {
-        backgroundColor: COLORS.secondary,
-        paddingVertical: SPACING.sm,
-        paddingHorizontal: SPACING.lg,
-        borderRadius: 8,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: SPACING.xs,
-    },
-    reloadButtonText: {
-        color: COLORS.background,
-        fontSize: FONT_SIZES.md,
-        fontWeight: "600",
-    },
-    retryButton: {
-        marginTop: SPACING.md,
-        backgroundColor: COLORS.primary,
-        paddingVertical: SPACING.sm,
-        paddingHorizontal: SPACING.lg,
-        borderRadius: 8,
-    },
-    retryButtonText: {
-        color: COLORS.background,
-        fontSize: FONT_SIZES.md,
-        fontWeight: "600",
-    },
-    footerContainer: {
-        padding: SPACING.md,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    loadMoreButton: {
-        backgroundColor: COLORS.primary,
-        paddingVertical: SPACING.sm,
-        paddingHorizontal: SPACING.lg,
-        borderRadius: 8,
-        marginBottom: SPACING.sm,
-    },
-    loadMoreButtonText: {
-        color: COLORS.background,
-        fontSize: FONT_SIZES.md,
-        fontWeight: "600",
-    },
-    paginationInfo: {
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.textSecondary,
-        marginTop: SPACING.xs,
     },
 });
 
