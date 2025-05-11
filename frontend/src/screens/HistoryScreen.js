@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { StyleSheet, View, Alert } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -17,11 +17,7 @@ import useHistorySearch from "../hooks/useHistorySearch";
 import useHistoryFilters from "../hooks/useHistoryFilters";
 
 // Import components
-import {
-    SearchBar,
-    FilterControls,
-    HistoryList,
-} from "../components/history";
+import { SearchBar, FilterControls, HistoryList } from "../components/history";
 
 const HistoryScreen = ({ navigation }) => {
     // State
@@ -249,7 +245,8 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: COLORS.background,
-        padding: SPACING.md,
+        paddingVertical: SPACING.md,
+        paddingHorizontal: SPACING.xs, // Reduced horizontal padding to accommodate wider items
     },
 });
 

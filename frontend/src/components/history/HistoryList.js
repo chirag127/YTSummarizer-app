@@ -1,16 +1,16 @@
-import React, { useCallback } from 'react';
-import { StyleSheet, FlatList, RefreshControl } from 'react-native';
-import PropTypes from 'prop-types';
-import { COLORS, SPACING } from '../../constants';
+import React, { useCallback } from "react";
+import { StyleSheet, FlatList, RefreshControl } from "react-native";
+import PropTypes from "prop-types";
+import { COLORS, SPACING } from "../../constants";
 
 // Import components
-import HistoryItem from './HistoryItem';
-import PaginationControls from './PaginationControls';
-import EmptyState from './EmptyState';
+import HistoryItem from "./HistoryItem";
+import PaginationControls from "./PaginationControls";
+import EmptyState from "./EmptyState";
 
 /**
  * HistoryList component for the History screen
- * 
+ *
  * @param {Object} props - Component props
  * @param {Array} props.summaries - Array of summaries to display
  * @param {boolean} props.isLoading - Whether summaries are loading
@@ -31,105 +31,123 @@ import EmptyState from './EmptyState';
  * @returns {React.ReactElement} HistoryList component
  */
 const HistoryList = ({
-  summaries,
-  isLoading,
-  isRefreshing,
-  isLoadingMore,
-  error,
-  pagination,
-  searchQuery,
-  allSummaries,
-  onRefresh,
-  onLoadMore,
-  onPressItem,
-  onToggleStar,
-  onDelete,
-  onClearSearch,
-  onCreateNew,
-  formatDate,
+    summaries,
+    isLoading,
+    isRefreshing,
+    isLoadingMore,
+    error,
+    pagination,
+    searchQuery,
+    allSummaries,
+    onRefresh,
+    onLoadMore,
+    onPressItem,
+    onToggleStar,
+    onDelete,
+    onClearSearch,
+    onCreateNew,
+    formatDate,
 }) => {
-  // Render item
-  const renderItem = useCallback(({ item }) => (
-    <HistoryItem
-      item={item}
-      onPress={onPressItem}
-      onToggleStar={onToggleStar}
-      onDelete={onDelete}
-      formatDate={formatDate}
-    />
-  ), [onPressItem, onToggleStar, onDelete, formatDate]);
+    // Render item
+    const renderItem = useCallback(
+        ({ item }) => (
+            <HistoryItem
+                item={item}
+                onPress={onPressItem}
+                onToggleStar={onToggleStar}
+                onDelete={onDelete}
+                formatDate={formatDate}
+            />
+        ),
+        [onPressItem, onToggleStar, onDelete, formatDate]
+    );
 
-  // Key extractor
-  const keyExtractor = useCallback((item) => item.id, []);
+    // Key extractor
+    const keyExtractor = useCallback((item) => item.id, []);
 
-  // Render empty component
-  const renderEmptyComponent = useCallback(() => (
-    <EmptyState
-      isLoading={isLoading}
-      error={error}
-      onRetry={onRefresh}
-      searchQuery={searchQuery}
-      onClearSearch={onClearSearch}
-      summaries={allSummaries}
-      onCreateNew={onCreateNew}
-    />
-  ), [isLoading, error, onRefresh, searchQuery, onClearSearch, allSummaries, onCreateNew]);
+    // Render empty component
+    const renderEmptyComponent = useCallback(
+        () => (
+            <EmptyState
+                isLoading={isLoading}
+                error={error}
+                onRetry={onRefresh}
+                searchQuery={searchQuery}
+                onClearSearch={onClearSearch}
+                summaries={allSummaries}
+                onCreateNew={onCreateNew}
+            />
+        ),
+        [
+            isLoading,
+            error,
+            onRefresh,
+            searchQuery,
+            onClearSearch,
+            allSummaries,
+            onCreateNew,
+        ]
+    );
 
-  // Render footer component
-  const renderFooterComponent = useCallback(() => (
-    <PaginationControls
-      pagination={pagination}
-      isLoadingMore={isLoadingMore}
-      onLoadMore={onLoadMore}
-    />
-  ), [pagination, isLoadingMore, onLoadMore]);
+    // Render footer component
+    const renderFooterComponent = useCallback(
+        () => (
+            <PaginationControls
+                pagination={pagination}
+                isLoadingMore={isLoadingMore}
+                onLoadMore={onLoadMore}
+            />
+        ),
+        [pagination, isLoadingMore, onLoadMore]
+    );
 
-  return (
-    <FlatList
-      data={summaries}
-      renderItem={renderItem}
-      keyExtractor={keyExtractor}
-      contentContainerStyle={styles.listContent}
-      ListEmptyComponent={renderEmptyComponent}
-      ListFooterComponent={renderFooterComponent}
-      onEndReached={onLoadMore}
-      onEndReachedThreshold={0.3}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={onRefresh}
-          colors={[COLORS.primary]}
-          tintColor={COLORS.primary}
+    return (
+        <FlatList
+            data={summaries}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={renderEmptyComponent}
+            ListFooterComponent={renderFooterComponent}
+            onEndReached={onLoadMore}
+            onEndReachedThreshold={0.3}
+            refreshControl={
+                <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={onRefresh}
+                    colors={[COLORS.primary]}
+                    tintColor={COLORS.primary}
+                />
+            }
         />
-      }
-    />
-  );
+    );
 };
 
 HistoryList.propTypes = {
-  summaries: PropTypes.array.isRequired,
-  isLoading: PropTypes.bool.isRequired,
-  isRefreshing: PropTypes.bool.isRequired,
-  isLoadingMore: PropTypes.bool.isRequired,
-  error: PropTypes.string,
-  pagination: PropTypes.object.isRequired,
-  searchQuery: PropTypes.string.isRequired,
-  allSummaries: PropTypes.array.isRequired,
-  onRefresh: PropTypes.func.isRequired,
-  onLoadMore: PropTypes.func.isRequired,
-  onPressItem: PropTypes.func.isRequired,
-  onToggleStar: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-  onClearSearch: PropTypes.func.isRequired,
-  onCreateNew: PropTypes.func.isRequired,
-  formatDate: PropTypes.func.isRequired,
+    summaries: PropTypes.array.isRequired,
+    isLoading: PropTypes.bool.isRequired,
+    isRefreshing: PropTypes.bool.isRequired,
+    isLoadingMore: PropTypes.bool.isRequired,
+    error: PropTypes.string,
+    pagination: PropTypes.object.isRequired,
+    searchQuery: PropTypes.string.isRequired,
+    allSummaries: PropTypes.array.isRequired,
+    onRefresh: PropTypes.func.isRequired,
+    onLoadMore: PropTypes.func.isRequired,
+    onPressItem: PropTypes.func.isRequired,
+    onToggleStar: PropTypes.func.isRequired,
+    onDelete: PropTypes.func.isRequired,
+    onClearSearch: PropTypes.func.isRequired,
+    onCreateNew: PropTypes.func.isRequired,
+    formatDate: PropTypes.func.isRequired,
 };
 
 const styles = StyleSheet.create({
-  listContent: {
-    padding: SPACING.md,
-    flexGrow: 1,
-  },
+    listContent: {
+        paddingVertical: SPACING.md,
+        paddingHorizontal: SPACING.xs, // Reduced horizontal padding to accommodate wider items
+        flexGrow: 1,
+    },
 });
 
 export default React.memo(HistoryList);
