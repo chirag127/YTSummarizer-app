@@ -2,11 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
     StyleSheet,
     View,
-    Text,
-    TextInput,
-    TouchableOpacity,
     ScrollView,
-    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -14,7 +10,6 @@ import {
     Linking,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 
@@ -23,11 +18,19 @@ import { generateSummary } from "../services/api";
 import {
     COLORS,
     SPACING,
-    FONT_SIZES,
     SUMMARY_TYPES,
     SUMMARY_LENGTHS,
     SCREENS,
 } from "../constants";
+
+// Import home components
+import {
+    HomeHeader,
+    VideoInput,
+    SummaryTypeSelector,
+    SummaryLengthSelector,
+    ActionButtons,
+} from "../components/home";
 
 // Constants
 const LAST_SETTINGS_KEY = "last_summary_settings";
@@ -288,70 +291,6 @@ const HomeScreen = ({ navigation, route }) => {
         processUrl,
     ]);
 
-    // Render summary type options
-    const renderSummaryTypeOptions = () => {
-        return (
-            <View style={styles.optionsContainer}>
-                <Text style={styles.optionsLabel}>Summary Type:</Text>
-                <View style={styles.optionsButtonGroup}>
-                    {SUMMARY_TYPES.map((type) => (
-                        <TouchableOpacity
-                            key={type.id}
-                            style={[
-                                styles.optionButton,
-                                summaryType === type.id &&
-                                    styles.optionButtonSelected,
-                            ]}
-                            onPress={() => setSummaryType(type.id)}
-                        >
-                            <Text
-                                style={[
-                                    styles.optionButtonText,
-                                    summaryType === type.id &&
-                                        styles.optionButtonTextSelected,
-                                ]}
-                            >
-                                {type.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
-        );
-    };
-
-    // Render summary length options
-    const renderSummaryLengthOptions = () => {
-        return (
-            <View style={styles.optionsContainer}>
-                <Text style={styles.optionsLabel}>Summary Length:</Text>
-                <View style={styles.optionsButtonGroup}>
-                    {SUMMARY_LENGTHS.map((length) => (
-                        <TouchableOpacity
-                            key={length.id}
-                            style={[
-                                styles.optionButton,
-                                summaryLength === length.id &&
-                                    styles.optionButtonSelected,
-                            ]}
-                            onPress={() => setSummaryLength(length.id)}
-                        >
-                            <Text
-                                style={[
-                                    styles.optionButtonText,
-                                    summaryLength === length.id &&
-                                        styles.optionButtonTextSelected,
-                                ]}
-                            >
-                                {length.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
-        );
-    };
-
     return (
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
@@ -364,90 +303,31 @@ const HomeScreen = ({ navigation, route }) => {
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
                 >
-                    <View style={styles.header}>
-                        <Text style={styles.title}>YouTube Summarizer</Text>
-                        <Text style={styles.subtitle}>
-                            Get AI-powered summaries of YouTube videos
-                        </Text>
-                    </View>
+                    <HomeHeader />
 
-                    <View style={styles.inputContainer}>
-                        <View style={styles.inputRow}>
-                            <TextInput
-                                style={[
-                                    styles.input,
-                                    !isValidUrl && styles.inputError,
-                                ]}
-                                placeholder="Paste YouTube URL here"
-                                value={url}
-                                onChangeText={handleUrlChange}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                keyboardType="url"
-                            />
-                            <TouchableOpacity
-                                style={styles.pasteButton}
-                                onPress={handlePasteFromClipboard}
-                                accessibilityLabel="Paste from clipboard"
-                                accessibilityHint="Pastes YouTube URL from clipboard"
-                            >
-                                <Ionicons
-                                    name="clipboard-outline"
-                                    size={24}
-                                    color={COLORS.primary}
-                                />
-                            </TouchableOpacity>
-                        </View>
-                        {!isValidUrl && (
-                            <Text style={styles.errorText}>
-                                Please enter a valid YouTube URL
-                            </Text>
-                        )}
-                    </View>
+                    <VideoInput
+                        url={url}
+                        isValidUrl={isValidUrl}
+                        onUrlChange={handleUrlChange}
+                        onPasteFromClipboard={handlePasteFromClipboard}
+                    />
 
-                    {renderSummaryTypeOptions()}
-                    {renderSummaryLengthOptions()}
+                    <SummaryTypeSelector
+                        summaryType={summaryType}
+                        onSummaryTypeChange={setSummaryType}
+                    />
 
-                    {isLoading ? (
-                        <View style={styles.loadingContainer}>
-                            <View style={styles.loadingInfo}>
-                                <ActivityIndicator
-                                    color={COLORS.primary}
-                                    size="small"
-                                />
-                                <Text style={styles.loadingText}>
-                                    Generating summary... {elapsedTime}s
-                                </Text>
-                            </View>
-                            <TouchableOpacity
-                                style={styles.cancelButton}
-                                onPress={handleCancelSummary}
-                            >
-                                <Ionicons
-                                    name="close-circle"
-                                    size={20}
-                                    color={COLORS.error}
-                                />
-                                <Text style={styles.cancelButtonText}>
-                                    Stop
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <TouchableOpacity
-                            style={styles.button}
-                            onPress={handleSubmit}
-                        >
-                            <Ionicons
-                                name="document-text"
-                                size={20}
-                                color={COLORS.background}
-                            />
-                            <Text style={styles.buttonText}>
-                                Generate Summary
-                            </Text>
-                        </TouchableOpacity>
-                    )}
+                    <SummaryLengthSelector
+                        summaryLength={summaryLength}
+                        onSummaryLengthChange={setSummaryLength}
+                    />
+
+                    <ActionButtons
+                        isLoading={isLoading}
+                        elapsedTime={elapsedTime}
+                        onSubmit={handleSubmit}
+                        onCancel={handleCancelSummary}
+                    />
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -462,144 +342,6 @@ const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
         padding: SPACING.lg,
-    },
-    header: {
-        marginTop: SPACING.xl,
-        marginBottom: SPACING.xl,
-        alignItems: "center",
-    },
-    title: {
-        fontSize: FONT_SIZES.xxxl,
-        fontWeight: "bold",
-        color: COLORS.primary,
-        marginBottom: SPACING.xs,
-    },
-    subtitle: {
-        fontSize: FONT_SIZES.md,
-        color: COLORS.textSecondary,
-        textAlign: "center",
-    },
-    inputContainer: {
-        marginBottom: SPACING.lg,
-    },
-    inputRow: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    input: {
-        flex: 1,
-        height: 50,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        borderRadius: 8,
-        paddingHorizontal: SPACING.md,
-        fontSize: FONT_SIZES.md,
-        backgroundColor: COLORS.surface,
-        color: COLORS.text,
-    },
-    inputError: {
-        borderColor: COLORS.error,
-    },
-    pasteButton: {
-        padding: SPACING.sm,
-        marginLeft: SPACING.sm,
-        borderRadius: 8,
-        backgroundColor: COLORS.surface,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        height: 50,
-        width: 50,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    errorText: {
-        color: COLORS.error,
-        fontSize: FONT_SIZES.sm,
-        marginTop: SPACING.xs,
-    },
-    optionsContainer: {
-        marginBottom: SPACING.lg,
-    },
-    optionsLabel: {
-        fontSize: FONT_SIZES.md,
-        fontWeight: "500",
-        marginBottom: SPACING.sm,
-        color: COLORS.text,
-    },
-    optionsButtonGroup: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-    },
-    optionButton: {
-        paddingVertical: SPACING.sm,
-        paddingHorizontal: SPACING.md,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        marginRight: SPACING.sm,
-        marginBottom: SPACING.sm,
-        backgroundColor: COLORS.surface,
-    },
-    optionButtonSelected: {
-        backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary,
-    },
-    optionButtonText: {
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.text,
-    },
-    optionButtonTextSelected: {
-        color: COLORS.background,
-    },
-    button: {
-        backgroundColor: COLORS.primary,
-        borderRadius: 8,
-        paddingVertical: SPACING.md,
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        marginTop: SPACING.md,
-    },
-    buttonText: {
-        color: COLORS.background,
-        fontSize: FONT_SIZES.md,
-        fontWeight: "600",
-        marginLeft: SPACING.sm,
-    },
-    loadingContainer: {
-        marginTop: SPACING.md,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        backgroundColor: COLORS.surface,
-        padding: SPACING.md,
-    },
-    loadingInfo: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: SPACING.md,
-    },
-    loadingText: {
-        marginLeft: SPACING.md,
-        fontSize: FONT_SIZES.md,
-        color: COLORS.text,
-    },
-    cancelButton: {
-        backgroundColor: COLORS.surface,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: COLORS.error,
-        paddingVertical: SPACING.sm,
-        paddingHorizontal: SPACING.md,
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    cancelButtonText: {
-        color: COLORS.error,
-        fontSize: FONT_SIZES.md,
-        fontWeight: "600",
-        marginLeft: SPACING.sm,
     },
 });
 
