@@ -28,6 +28,7 @@ import {
     OfflineDataSection,
     ApiKeySection,
     AnalyticsSection,
+    BackendUrlSection,
     TimeZoneSection,
     TTSRateSection,
     TTSPitchSection,
@@ -480,6 +481,8 @@ const SettingsScreen = () => {
                 />
 
                 <ApiKeySection />
+
+                <BackendUrlSection />
 
                 <AnalyticsSection onShowAnalytics={showAnalytics} />
 

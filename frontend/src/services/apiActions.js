@@ -2,20 +2,36 @@
 import axios from "axios";
 import NetInfo from "@react-native-community/netinfo";
 import * as storageService from "./storageService";
+import * as apiConfigService from "./apiConfigService";
 import { extractVideoId } from "../utils";
 import { API_BASE_URL } from "../constants";
 
-// Base URL for API calls
-// const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
-// const API_BASE_URL = "http://192.168.31.232:8000";
-
-// Create axios instance with base URL
+// Create axios instance with dynamic base URL
+// The base URL will be updated before each request
 const api = axios.create({
-    baseURL: API_BASE_URL,
     headers: {
         "Content-Type": "application/json",
     },
 });
+
+// Add request interceptor to set baseURL dynamically
+api.interceptors.request.use(
+    async (config) => {
+        try {
+            // Set the baseURL dynamically from apiConfigService
+            const baseUrl = await apiConfigService.getBaseUrl();
+            config.baseURL = baseUrl;
+        } catch (error) {
+            console.error("Error in request interceptor:", error);
+            // Set default baseURL if there's an error
+            config.baseURL = API_BASE_URL;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
 /**
  * Toggle star status for a summary
