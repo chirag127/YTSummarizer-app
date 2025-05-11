@@ -2,24 +2,15 @@ import React, { useState, useRef, useEffect } from "react";
 import {
     StyleSheet,
     View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    FlatList,
-    ActivityIndicator,
-    Platform,
-    SafeAreaView,
     Alert,
-    Image,
+    SafeAreaView,
     Keyboard,
-    KeyboardAvoidingView,
+    Platform,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import Markdown from "react-native-markdown-display";
 import * as Clipboard from "expo-clipboard";
 import NetInfo from "@react-native-community/netinfo";
 
-import { COLORS, SPACING, FONT_SIZES } from "../constants";
+import { COLORS } from "../constants";
 import { getVideoQAHistory, askVideoQuestion } from "../services/api";
 import { useTimeZone } from "../context/TimeZoneContext";
 import * as analytics from "../services/analytics";
@@ -32,6 +23,16 @@ import {
     processTextForSpeech,
 } from "../services/tts";
 import { parseMarkdownToPlainText } from "../utils";
+
+// Import modular components
+import Header from "../components/qa/Header";
+import MessageList from "../components/qa/MessageList";
+import InputArea from "../components/qa/InputArea";
+import LoadingIndicator from "../components/qa/LoadingIndicator";
+import ErrorDisplay from "../components/qa/ErrorDisplay";
+import NoTranscriptError from "../components/qa/NoTranscriptError";
+import InitialLoading from "../components/qa/InitialLoading";
+import markdownStyles from "../components/qa/MarkdownStyles";
 
 const QAScreen = ({ route, navigation }) => {
     // Get video info from route params
@@ -783,174 +784,62 @@ const QAScreen = ({ route, navigation }) => {
 
     // If initial load, show loading screen
     if (isInitialLoad) {
-        return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={styles.loadingText}>
-                    Loading conversation history...
-                </Text>
-            </View>
-        );
+        return <InitialLoading />;
     }
 
     // If no transcript available, show error screen with retry option
     if (!hasTranscript) {
-        return (
-            <View style={styles.centerContainer}>
-                <Ionicons
-                    name="alert-circle-outline"
-                    size={48}
-                    color={COLORS.error}
-                />
-                <Text style={styles.errorText}>
-                    This video does not have a transcript available.
-                </Text>
-                <Text style={styles.errorSubtext}>
-                    The Q&A feature requires a video transcript to function.
-                </Text>
-                <TouchableOpacity
-                    style={styles.retryButton}
-                    onPress={retryLoadChatHistory}
-                >
-                    <Text style={styles.retryButtonText}>Retry</Text>
-                </TouchableOpacity>
-            </View>
-        );
+        return <NoTranscriptError onRetry={retryLoadChatHistory} />;
     }
 
     return (
         <SafeAreaView style={styles.container}>
             {/* Video Info Header */}
-            <View style={styles.videoInfoContainer}>
-                <View style={styles.headerRow}>
-                    <Image
-                        source={{
-                            uri:
-                                videoThumbnail ||
-                                "https://via.placeholder.com/480x360?text=No+Thumbnail",
-                        }}
-                        style={styles.thumbnail}
-                    />
-                    <View style={styles.headerButtons}>
-                        <View style={styles.tokenCountsContainer}>
-                            <View style={styles.tokenCountContainer}>
-                                <Ionicons
-                                    name="document-text-outline"
-                                    size={14}
-                                    color={COLORS.textSecondary}
-                                />
-                                <Text style={styles.tokenCountText}>
-                                    Transcript:{" "}
-                                    {transcriptTokenCount.toLocaleString()}
-                                </Text>
-                            </View>
-                            <View style={styles.tokenCountContainer}>
-                                <Ionicons
-                                    name="chatbubble-outline"
-                                    size={14}
-                                    color={COLORS.textSecondary}
-                                />
-                                <Text style={styles.tokenCountText}>
-                                    Total: {tokenCount.toLocaleString()}
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-                <Text style={styles.videoTitle} numberOfLines={2}>
-                    {videoTitle}
-                </Text>
-            </View>
+            <Header
+                videoTitle={videoTitle}
+                videoThumbnail={videoThumbnail}
+                transcriptTokenCount={transcriptTokenCount}
+                tokenCount={tokenCount}
+            />
 
-            {/* Messages List - Using FlatList directly instead of nesting in ScrollView */}
+            {/* Messages List */}
             <View style={styles.messagesContainer}>
-                <FlatList
-                    ref={flatListRef}
-                    data={messages}
-                    renderItem={renderMessage}
-                    keyExtractor={(item, index) =>
-                        item.id || `message-${index}-${Date.now()}`
-                    }
-                    contentContainerStyle={styles.messageList}
-                    // Removed automatic scrolling on content size change to prevent
-                    // scrolling when TTS highlighting changes
-                    // onContentSizeChange={() => {
-                    //     console.log("Content size changed, scrolling to end");
-                    //     flatListRef.current?.scrollToEnd();
-                    // }}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>
-                                Ask a question about the video content
-                            </Text>
-                            <Text style={styles.emptySubtext}>
-                                The AI will answer based on the video transcript
-                            </Text>
-                        </View>
-                    }
-                    // Add keyboard aware behavior directly to FlatList
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
-                    // Make sure the list can grow to fill available space
-                    style={{ flex: 1 }}
+                <MessageList
+                    messages={messages}
+                    flatListRef={flatListRef}
+                    onLongPress={handleCopyMessage}
+                    onSpeakMessage={handleSpeakMessage}
+                    isPlayingTTS={isPlayingTTS}
+                    speakingMessageId={speakingMessageId}
+                    processedTexts={processedTexts}
+                    currentWord={currentWord}
+                    currentSentence={currentSentence}
+                    formatDateWithTimeZone={formatDateWithTimeZone}
+                    markdownStyles={markdownStyles}
+                    messageRefs={messageRefs}
+                    sentenceRefs={sentenceRefs}
+                    wordRefs={wordRefs}
                 />
 
-                {isLoading && renderLoading()}
-                {error && renderError()}
+                {isLoading && <LoadingIndicator />}
+                {error && (
+                    <ErrorDisplay
+                        error={error}
+                        onRetry={retryLoadChatHistory}
+                        isRetrying={isRetrying}
+                    />
+                )}
             </View>
 
             {/* Input Container */}
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 80}
-                style={styles.keyboardAvoidingContainer}
-            >
-                <View style={styles.inputContainer}>
-                    {isOffline && (
-                        <View style={styles.offlineBanner}>
-                            <Ionicons
-                                name="cloud-offline-outline"
-                                size={16}
-                                color={COLORS.error}
-                            />
-                            <Text style={styles.offlineBannerText}>
-                                You're offline. Questions will be answered when
-                                you're back online.
-                            </Text>
-                        </View>
-                    )}
-                    <TextInput
-                        ref={inputRef}
-                        style={styles.input}
-                        value={inputText}
-                        onChangeText={setInputText}
-                        placeholder="Type your question..."
-                        placeholderTextColor={COLORS.textSecondary}
-                        multiline
-                        maxLength={500}
-                        editable={!isLoading}
-                    />
-                    <TouchableOpacity
-                        style={[
-                            styles.sendButton,
-                            (!inputText.trim() || isLoading) &&
-                                styles.sendButtonDisabled,
-                        ]}
-                        onPress={handleSend}
-                        disabled={!inputText.trim() || isLoading}
-                    >
-                        <Ionicons
-                            name="send"
-                            size={24}
-                            color={
-                                !inputText.trim() || isLoading
-                                    ? COLORS.disabled
-                                    : COLORS.primary
-                            }
-                        />
-                    </TouchableOpacity>
-                </View>
-            </KeyboardAvoidingView>
+            <InputArea
+                inputText={inputText}
+                onChangeText={setInputText}
+                onSend={handleSend}
+                isLoading={isLoading}
+                isOffline={isOffline}
+                inputRef={inputRef}
+            />
         </SafeAreaView>
     );
 };
@@ -960,430 +849,10 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
-    centerContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: SPACING.xl,
-    },
     messagesContainer: {
         flex: 1,
         backgroundColor: COLORS.background,
     },
-    keyboardAvoidingContainer: {
-        width: "100%",
-        backgroundColor: COLORS.background,
-    },
-    videoInfoContainer: {
-        padding: SPACING.md,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-        backgroundColor: COLORS.surface,
-    },
-    headerRow: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        marginBottom: SPACING.sm,
-    },
-    thumbnail: {
-        width: "70%",
-        height: 100,
-        borderRadius: 8,
-    },
-    headerButtons: {
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "space-between",
-        width: "30%",
-    },
-    tokenCountsContainer: {
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "100%",
-    },
-    tokenCountContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "flex-start",
-        padding: SPACING.xs,
-        borderRadius: 8,
-        backgroundColor: COLORS.surface,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        marginBottom: SPACING.xs,
-        marginLeft: SPACING.sm,
-        width: "100%",
-    },
-    tokenCountText: {
-        fontSize: FONT_SIZES.xs,
-        color: COLORS.textSecondary,
-        marginLeft: SPACING.xs,
-    },
-
-    videoTitle: {
-        fontSize: FONT_SIZES.md,
-        fontWeight: "500",
-        color: COLORS.text,
-        textAlign: "center",
-    },
-    // TTS Highlighting styles
-    sentenceContainer: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        marginBottom: SPACING.md,
-    },
-    activeSentence: {
-        backgroundColor: "rgba(0, 123, 255, 0.05)",
-        borderRadius: 4,
-        padding: SPACING.xs,
-    },
-    word: {
-        fontSize: FONT_SIZES.md,
-        color: COLORS.text,
-        lineHeight: 22,
-    },
-    highlightedWord: {
-        backgroundColor: "rgba(0, 123, 255, 0.4)",
-        borderRadius: 4,
-        fontWeight: "600",
-        color: COLORS.primary,
-    },
-    speakingMessage: {
-        borderWidth: 1,
-        borderColor: COLORS.primary,
-    },
-    messageList: {
-        padding: SPACING.md,
-        flexGrow: 1,
-    },
-    messageContainer: {
-        maxWidth: "80%",
-        padding: SPACING.md,
-        borderRadius: 16,
-        marginBottom: SPACING.md,
-        flexShrink: 1,
-        flexDirection: "column",
-    },
-    userMessage: {
-        alignSelf: "flex-end",
-        backgroundColor: COLORS.primary,
-    },
-    aiMessage: {
-        alignSelf: "flex-start",
-        backgroundColor: COLORS.surface,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    messageContentContainer: {
-        width: "100%",
-        flexDirection: "column",
-        flexShrink: 1,
-    },
-    messageText: {
-        fontSize: FONT_SIZES.md,
-        color: COLORS.text,
-        lineHeight: 20,
-        flexShrink: 1,
-        flexWrap: "wrap",
-    },
-    userMessageText: {
-        color: COLORS.background,
-    },
-    messageFooter: {
-        flexDirection: "row",
-        justifyContent: "flex-end",
-        alignItems: "center",
-        width: "100%",
-        marginTop: SPACING.xs,
-    },
-    timestamp: {
-        fontSize: FONT_SIZES.xs,
-        color: COLORS.textSecondary,
-        marginRight: SPACING.sm,
-    },
-    ttsButton: {
-        padding: SPACING.xs,
-        borderRadius: 20,
-        backgroundColor: COLORS.surface,
-        marginLeft: SPACING.xs,
-    },
-    inputContainer: {
-        flexDirection: "row",
-        alignItems: "flex-end",
-        padding: SPACING.md,
-        borderTopWidth: 1,
-        borderTopColor: COLORS.border,
-        backgroundColor: COLORS.background,
-        paddingBottom: Platform.OS === "ios" ? SPACING.xl : SPACING.lg, // Add extra padding at the bottom for iOS
-    },
-    input: {
-        flex: 1,
-        minHeight: 40,
-        maxHeight: 100,
-        backgroundColor: COLORS.surface,
-        borderRadius: 20,
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.sm,
-        marginRight: SPACING.sm,
-        fontSize: FONT_SIZES.md,
-        color: COLORS.text,
-    },
-    sendButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: COLORS.surface,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    sendButtonDisabled: {
-        opacity: 0.5,
-    },
-    loadingContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: SPACING.sm,
-        backgroundColor: COLORS.background,
-    },
-    loadingText: {
-        marginLeft: SPACING.sm,
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.textSecondary,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: SPACING.xl,
-        opacity: 0.8,
-    },
-    emptyText: {
-        fontSize: FONT_SIZES.lg,
-        color: COLORS.text,
-        textAlign: "center",
-        marginBottom: SPACING.sm,
-    },
-    emptySubtext: {
-        fontSize: FONT_SIZES.md,
-        color: COLORS.textSecondary,
-        textAlign: "center",
-    },
-    errorText: {
-        fontSize: FONT_SIZES.lg,
-        color: COLORS.error,
-        textAlign: "center",
-        marginVertical: SPACING.md,
-    },
-    errorSubtext: {
-        fontSize: FONT_SIZES.md,
-        color: COLORS.textSecondary,
-        textAlign: "center",
-    },
-    offlineMessage: {
-        borderWidth: 1,
-        borderColor: COLORS.error,
-        opacity: 0.8,
-    },
-    offlineIndicator: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: SPACING.xs,
-    },
-    offlineText: {
-        fontSize: FONT_SIZES.xs,
-        color: COLORS.error,
-        marginLeft: SPACING.xs,
-    },
-    offlineBanner: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: COLORS.error + "20", // 20% opacity
-        padding: SPACING.xs,
-        borderRadius: 8,
-        marginBottom: SPACING.xs,
-        width: "100%",
-    },
-    offlineBannerText: {
-        fontSize: FONT_SIZES.xs,
-        color: COLORS.error,
-        marginLeft: SPACING.xs,
-        flex: 1,
-    },
-    errorBanner: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: COLORS.error + "20", // 20% opacity
-        padding: SPACING.sm,
-        borderRadius: 8,
-        margin: SPACING.md,
-        borderWidth: 1,
-        borderColor: COLORS.error,
-    },
-    errorContent: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-    },
-    errorMessage: {
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.error,
-        marginLeft: SPACING.xs,
-        flex: 1,
-    },
-    retryButton: {
-        backgroundColor: COLORS.error,
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.xs,
-        borderRadius: 4,
-        marginLeft: SPACING.sm,
-    },
-    retryButtonText: {
-        color: COLORS.background,
-        fontSize: FONT_SIZES.sm,
-        fontWeight: "500",
-    },
 });
-
-// Define markdown styles
-const markdownStyles = {
-    body: {
-        color: COLORS.text,
-        fontSize: FONT_SIZES.md,
-        lineHeight: 20,
-        flexWrap: "wrap",
-        flexShrink: 1,
-        width: "100%",
-    },
-    heading1: {
-        fontSize: FONT_SIZES.xl,
-        fontWeight: "bold",
-        marginTop: SPACING.md,
-        marginBottom: SPACING.sm,
-        color: COLORS.text,
-        flexWrap: "wrap",
-    },
-    heading2: {
-        fontSize: FONT_SIZES.lg,
-        fontWeight: "bold",
-        marginTop: SPACING.md,
-        marginBottom: SPACING.sm,
-        color: COLORS.text,
-        flexWrap: "wrap",
-    },
-    heading3: {
-        fontSize: FONT_SIZES.md + 2,
-        fontWeight: "bold",
-        marginTop: SPACING.sm,
-        marginBottom: SPACING.xs,
-        color: COLORS.text,
-        flexWrap: "wrap",
-    },
-    paragraph: {
-        marginBottom: SPACING.sm,
-        color: COLORS.text,
-        flexWrap: "wrap",
-    },
-    link: {
-        color: COLORS.primary,
-        textDecorationLine: "underline",
-        flexWrap: "wrap",
-        overflow: "hidden",
-    },
-    url: {
-        color: COLORS.primary,
-        textDecorationLine: "underline",
-        flexWrap: "wrap",
-        overflow: "hidden",
-    },
-    code_inline: {
-        fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-        backgroundColor: COLORS.border + "40",
-        borderRadius: 4,
-        paddingHorizontal: 4,
-        flexWrap: "wrap",
-        overflow: "hidden",
-    },
-    code_block: {
-        fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-        backgroundColor: COLORS.border + "40",
-        borderRadius: 4,
-        padding: SPACING.sm,
-        marginVertical: SPACING.sm,
-        flexWrap: "wrap",
-        width: "100%",
-        overflow: "hidden",
-    },
-    fence: {
-        fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-        backgroundColor: COLORS.border + "40",
-        borderRadius: 4,
-        padding: SPACING.sm,
-        marginVertical: SPACING.sm,
-        flexWrap: "wrap",
-        width: "100%",
-        overflow: "hidden",
-    },
-    blockquote: {
-        borderLeftWidth: 4,
-        borderLeftColor: COLORS.border,
-        paddingLeft: SPACING.md,
-        flexWrap: "wrap",
-        marginLeft: SPACING.sm,
-        marginVertical: SPACING.sm,
-        opacity: 0.8,
-    },
-    code_block: {
-        backgroundColor: COLORS.surface,
-        padding: SPACING.sm,
-        borderRadius: 4,
-        fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-        fontSize: FONT_SIZES.sm,
-    },
-    code_inline: {
-        backgroundColor: COLORS.surface,
-        padding: 2,
-        borderRadius: 2,
-        fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-        fontSize: FONT_SIZES.sm,
-    },
-    list_item: {
-        flexDirection: "row",
-        marginBottom: SPACING.xs,
-    },
-    bullet_list: {
-        marginBottom: SPACING.sm,
-    },
-    ordered_list: {
-        marginBottom: SPACING.sm,
-    },
-    hr: {
-        backgroundColor: COLORS.border,
-        height: 1,
-        marginVertical: SPACING.md,
-    },
-    table: {
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        borderRadius: 4,
-        marginVertical: SPACING.md,
-    },
-    tr: {
-        flexDirection: "row",
-        borderBottomWidth: 1,
-        borderColor: COLORS.border,
-    },
-    th: {
-        padding: SPACING.sm,
-        fontWeight: "bold",
-        backgroundColor: COLORS.surface,
-    },
-    td: {
-        padding: SPACING.sm,
-    },
-};
 
 export default QAScreen;
