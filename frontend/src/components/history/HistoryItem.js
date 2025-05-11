@@ -21,61 +21,63 @@ const HistoryItem = ({ item, onPress, onToggleStar, onDelete, formatDate }) => {
             style={styles.summaryItem}
             onPress={() => onPress(item)}
         >
-            <Image
-                source={{
-                    uri:
-                        item.video_thumbnail_url ||
-                        "https://via.placeholder.com/480x360?text=No+Thumbnail",
-                }}
-                style={styles.thumbnail}
-                resizeMode="cover"
-            />
-            <View style={styles.summaryInfo}>
-                <Text style={styles.summaryTitle} numberOfLines={2}>
-                    {item.video_title || "Untitled Video"}
-                </Text>
-                <Text style={styles.summaryDate}>
-                    {formatDate(item.created_at)}
-                </Text>
-                <View style={styles.summaryTypeContainer}>
-                    <View style={[styles.badge, styles.typeBadge]}>
-                        <Text style={styles.badgeText}>
-                            {item.summary_type}
-                        </Text>
-                    </View>
-                    <View style={[styles.badge, styles.lengthBadge]}>
-                        <Text style={styles.badgeText}>
-                            {item.summary_length}
-                        </Text>
+            <View style={styles.topContainer}>
+                <Image
+                    source={{
+                        uri:
+                            item.video_thumbnail_url ||
+                            "https://via.placeholder.com/480x360?text=No+Thumbnail",
+                    }}
+                    style={styles.thumbnail}
+                    resizeMode="cover"
+                />
+                <View style={styles.metadataContainer}>
+                    <Text style={styles.summaryDate}>
+                        {formatDate(item.created_at)}
+                    </Text>
+                    <View style={styles.summaryTypeContainer}>
+                        <View style={[styles.badge, styles.typeBadge]}>
+                            <Text style={styles.badgeText}>
+                                {item.summary_type}
+                            </Text>
+                        </View>
+                        <View style={[styles.badge, styles.lengthBadge]}>
+                            <Text style={styles.badgeText}>
+                                {item.summary_length}
+                            </Text>
+                        </View>
                     </View>
                 </View>
+                <View style={styles.actionsContainer}>
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => onToggleStar(item.id, item.is_starred)}
+                    >
+                        <Ionicons
+                            name={item.is_starred ? "star" : "star-outline"}
+                            size={20}
+                            color={
+                                item.is_starred
+                                    ? COLORS.accent
+                                    : COLORS.textSecondary
+                            }
+                        />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => onDelete(item.id)}
+                    >
+                        <Ionicons
+                            name="trash-outline"
+                            size={20}
+                            color={COLORS.error}
+                        />
+                    </TouchableOpacity>
+                </View>
             </View>
-            <View style={styles.actionsContainer}>
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => onToggleStar(item.id, item.is_starred)}
-                >
-                    <Ionicons
-                        name={item.is_starred ? "star" : "star-outline"}
-                        size={20}
-                        color={
-                            item.is_starred
-                                ? COLORS.accent
-                                : COLORS.textSecondary
-                        }
-                    />
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => onDelete(item.id)}
-                >
-                    <Ionicons
-                        name="trash-outline"
-                        size={20}
-                        color={COLORS.error}
-                    />
-                </TouchableOpacity>
-            </View>
+            <Text style={styles.summaryTitle} numberOfLines={3}>
+                {item.video_title || "Untitled Video"}
+            </Text>
         </TouchableOpacity>
     );
 };
@@ -98,47 +100,51 @@ HistoryItem.propTypes = {
 
 const styles = StyleSheet.create({
     summaryItem: {
-        flexDirection: "row",
+        flexDirection: "column", // Changed from row to column
         backgroundColor: COLORS.background,
         borderRadius: 8,
         marginBottom: SPACING.md,
-        marginHorizontal: SPACING.xs, // Added horizontal margin
-        padding: SPACING.lg, // Increased padding from md to lg
-        width: "98%", // Set width to almost full width
-        alignSelf: "center", // Center the item horizontally
-        ...SHADOWS.medium, // Upgraded shadow for better visibility
+        marginHorizontal: SPACING.xs,
+        padding: SPACING.lg,
+        width: "98%",
+        alignSelf: "center",
+        ...SHADOWS.medium,
+    },
+    topContainer: {
+        flexDirection: "row", // This row contains thumbnail, metadata, and actions
+        marginBottom: SPACING.md, // Add space between top container and title
     },
     thumbnail: {
-        width: 100, // Increased from 80 to 100
-        height: 75, // Increased from 60 to 75 to maintain aspect ratio
-        borderRadius: 6, // Slightly increased border radius
-        marginRight: SPACING.lg, // Increased spacing between thumbnail and content
+        width: 100,
+        height: 75,
+        borderRadius: 6,
+        marginRight: SPACING.md,
     },
-    summaryInfo: {
-        flex: 1,
-        justifyContent: "space-between",
-        paddingVertical: SPACING.xs, // Added vertical padding
+    metadataContainer: {
+        flex: 1, // Take available space
+        justifyContent: "center", // Center content vertically
     },
     summaryTitle: {
-        fontSize: FONT_SIZES.lg, // Increased font size from md to lg
-        fontWeight: "600", // Increased font weight from 500 to 600
+        fontSize: FONT_SIZES.lg,
+        fontWeight: "600",
         color: COLORS.text,
-        marginBottom: SPACING.sm, // Increased bottom margin
+        lineHeight: FONT_SIZES.lg * 1.3,
+        marginTop: SPACING.xs, // Add space above title
     },
     summaryDate: {
         fontSize: FONT_SIZES.sm,
         color: COLORS.textSecondary,
-        marginBottom: SPACING.sm, // Increased bottom margin
+        marginBottom: SPACING.xs, // Reduced margin
     },
     summaryTypeContainer: {
         flexDirection: "row",
+        marginTop: SPACING.xs, // Added top margin
     },
     badge: {
         paddingHorizontal: SPACING.sm,
-        paddingVertical: SPACING.xs,
-        borderRadius: 6, // Increased from 4 to 6
-        marginRight: SPACING.sm, // Increased from xs to sm
-        marginTop: SPACING.xs, // Added top margin
+        paddingVertical: SPACING.xs / 2, // Reduced vertical padding for more compact badges
+        borderRadius: 6,
+        marginRight: SPACING.sm,
     },
     typeBadge: {
         backgroundColor: COLORS.primary + "30", // Increased opacity from 20% to 30%
@@ -147,18 +153,18 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.secondary + "30", // Increased opacity from 20% to 30%
     },
     badgeText: {
-        fontSize: FONT_SIZES.sm, // Increased from xs to sm
-        fontWeight: "500", // Added font weight
+        fontSize: FONT_SIZES.xs, // Changed back to xs for more compact badges
+        fontWeight: "500",
         color: COLORS.text,
     },
     actionsContainer: {
         justifyContent: "space-between",
-        paddingLeft: SPACING.md, // Increased from sm to md
-        marginLeft: SPACING.sm, // Added left margin
+        paddingLeft: SPACING.sm,
+        marginLeft: SPACING.xs,
     },
     actionButton: {
-        padding: SPACING.sm, // Increased from xs to sm
-        marginVertical: SPACING.sm, // Added vertical margin
+        padding: SPACING.xs,
+        marginVertical: SPACING.xs,
     },
 });
 
