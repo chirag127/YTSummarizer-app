@@ -1,5 +1,16 @@
-import React, { useRef, forwardRef, useImperativeHandle } from "react";
-import { StyleSheet, View, Text, ScrollView } from "react-native";
+import React, {
+    useRef,
+    forwardRef,
+    useImperativeHandle,
+    useState,
+} from "react";
+import {
+    StyleSheet,
+    View,
+    Text,
+    ScrollView,
+    TouchableOpacity,
+} from "react-native";
 import Markdown from "react-native-markdown-display";
 import PropTypes from "prop-types";
 
@@ -16,6 +27,7 @@ import { COLORS, SPACING, FONT_SIZES } from "../../constants";
  * @param {number} props.currentSentence - The index of the current sentence being spoken
  * @param {Object} props.currentWord - The current word being spoken
  * @param {Object} props.scrollViewRef - Ref to the parent ScrollView
+ * @param {Function} props.onSentenceTap - Function to handle when a sentence is double-tapped
  */
 const SummaryContent = forwardRef(
     (
@@ -27,16 +39,94 @@ const SummaryContent = forwardRef(
             currentSentence,
             currentWord,
             scrollViewRef,
+            onSentenceTap,
         },
         ref
     ) => {
         // Refs for sentence elements
         const sentenceRefs = useRef({});
+        // State for tracking the last tap time for each sentence
+        const [lastTapTimes, setLastTapTimes] = useState({});
+        // State for tracking which sentence is being highlighted from a tap
+        const [tappedSentence, setTappedSentence] = useState(null);
 
         // Expose the sentenceRefs to the parent component
         useImperativeHandle(ref, () => ({
             sentenceRefs: sentenceRefs.current,
         }));
+
+        // Handle tap on a sentence
+        const handleSentenceTap = (sentenceIndex) => {
+            console.log(`Tap detected on sentence ${sentenceIndex}`);
+
+            const now = Date.now();
+            const lastTap = lastTapTimes[sentenceIndex] || 0;
+            const doubleTapDelay = 300; // ms between taps to consider it a double tap
+
+            // Update the last tap time for this sentence
+            setLastTapTimes((prev) => ({
+                ...prev,
+                [sentenceIndex]: now,
+            }));
+
+            // Check if this is a double tap (two taps within doubleTapDelay ms)
+            if (now - lastTap < doubleTapDelay) {
+                console.log(
+                    `Double tap confirmed on sentence ${sentenceIndex}`
+                );
+
+                // It's a double tap
+                // Provide visual feedback
+                setTappedSentence(sentenceIndex);
+
+                // Reset the tapped sentence after a short delay
+                setTimeout(() => {
+                    setTappedSentence(null);
+                }, 300);
+
+                // Call the callback with the sentence index
+                if (onSentenceTap) {
+                    // Ensure we're passing the correct index
+                    console.log(
+                        `Calling onSentenceTap with index: ${sentenceIndex}`
+                    );
+                    onSentenceTap(sentenceIndex);
+                } else {
+                    console.warn("onSentenceTap callback is not defined");
+                }
+            }
+        };
+
+        // Wrapper component for sentences with tap detection
+        const SentenceWrapper = ({ children, sentenceIndex }) => {
+            // Determine if this sentence should be highlighted
+            const isActive = currentSentence === sentenceIndex;
+            const isTapped = tappedSentence === sentenceIndex;
+
+            return (
+                <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => handleSentenceTap(sentenceIndex)}
+                    delayPressIn={0}
+                >
+                    <View
+                        ref={(ref) =>
+                            (sentenceRefs.current[sentenceIndex] = ref)
+                        }
+                        style={[
+                            styles.sentenceContainer,
+                            isActive && styles.activeSentence,
+                            isTapped && styles.tappedSentence,
+                        ]}
+                        accessible={true}
+                        accessibilityRole="text"
+                        accessibilityHint="Double tap to start reading from this sentence"
+                    >
+                        {children}
+                    </View>
+                </TouchableOpacity>
+            );
+        };
 
         return (
             <View style={styles.summaryContentContainer}>
@@ -48,16 +138,9 @@ const SummaryContent = forwardRef(
                 processedText.sentences ? (
                     <View>
                         {processedText.sentences.map((sentence, index) => (
-                            <View
+                            <SentenceWrapper
                                 key={`sentence-${index}`}
-                                ref={(ref) =>
-                                    (sentenceRefs.current[index] = ref)
-                                }
-                                style={[
-                                    styles.sentenceContainer,
-                                    currentSentence === index &&
-                                        styles.activeSentence,
-                                ]}
+                                sentenceIndex={index}
                             >
                                 {sentence &&
                                 sentence.words &&
@@ -87,12 +170,26 @@ const SummaryContent = forwardRef(
                                         {sentence?.text || ""}
                                     </Text>
                                 )}
-                            </View>
+                            </SentenceWrapper>
                         ))}
                     </View>
                 ) : (
                     // Render markdown when not playing TTS and not showing plain text
-                    <Markdown style={markdownStyles}>{summaryText}</Markdown>
+                    <View>
+                        <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => {
+                                console.log("Tap on markdown view");
+                                handleSentenceTap(0);
+                            }}
+                            accessible={true}
+                            accessibilityHint="Double tap to start reading from the beginning"
+                        >
+                            <Markdown style={markdownStyles}>
+                                {summaryText}
+                            </Markdown>
+                        </TouchableOpacity>
+                    </View>
                 )}
             </View>
         );
@@ -109,6 +206,7 @@ SummaryContent.propTypes = {
     currentSentence: PropTypes.number.isRequired,
     currentWord: PropTypes.object,
     scrollViewRef: PropTypes.object.isRequired,
+    onSentenceTap: PropTypes.func,
 };
 
 // Set display name for the forwardRef component
@@ -131,11 +229,14 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
         marginBottom: SPACING.md,
+        padding: SPACING.xs,
+        borderRadius: 4,
     },
     activeSentence: {
         backgroundColor: "rgba(0, 123, 255, 0.05)",
-        borderRadius: 4,
-        padding: SPACING.xs,
+    },
+    tappedSentence: {
+        backgroundColor: "rgba(0, 123, 255, 0.3)",
     },
     word: {
         fontSize: FONT_SIZES.md,

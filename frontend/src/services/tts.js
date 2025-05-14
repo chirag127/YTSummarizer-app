@@ -263,25 +263,55 @@ const speakChunk = async (
     globalStartSentenceIndex = 0
 ) => {
     try {
+        console.log(
+            `speakChunk called with startSentenceIndex: ${startSentenceIndex}, globalStartSentenceIndex: ${globalStartSentenceIndex}`
+        );
+
         // Process text for speech
         const processedText = processTextForSpeech(chunk);
+        console.log(`Chunk has ${processedText.sentences.length} sentences`);
 
         // If starting from a specific sentence, adjust the text
         let speakingText = chunk;
         let startCharIndex = 0;
 
         if (
-            startSentenceIndex > 0 &&
+            startSentenceIndex >= 0 &&
             startSentenceIndex < processedText.sentences.length
         ) {
+            console.log(
+                `Starting from sentence ${startSentenceIndex} in this chunk`
+            );
+
             // Find the starting character index for the sentence
             const sentenceWords = processedText.wordMap.filter(
                 (w) => w.sentenceIndex === startSentenceIndex
             );
+
+            console.log(
+                `Found ${sentenceWords.length} words in sentence ${startSentenceIndex}`
+            );
+
             if (sentenceWords.length > 0) {
                 startCharIndex = sentenceWords[0].startChar;
                 speakingText = chunk.substring(startCharIndex);
+                console.log(
+                    `Starting from character ${startCharIndex}, text: "${speakingText.substring(
+                        0,
+                        50
+                    )}..."`
+                );
+            } else {
+                console.warn(
+                    `No words found for sentence ${startSentenceIndex}`
+                );
             }
+        } else if (startSentenceIndex >= processedText.sentences.length) {
+            console.warn(
+                `Invalid startSentenceIndex: ${startSentenceIndex}, max: ${
+                    processedText.sentences.length - 1
+                }. Using full chunk.`
+            );
         }
 
         // Prepare speech options
@@ -441,6 +471,10 @@ const speakChunk = async (
 // Speak text with current settings
 export const speakText = async (text, startSentenceIndex = 0) => {
     try {
+        console.log(
+            `speakText called with startSentenceIndex: ${startSentenceIndex}`
+        );
+
         // Get current settings
         const settings = await getTTSSettings();
 
@@ -452,6 +486,20 @@ export const speakText = async (text, startSentenceIndex = 0) => {
 
         // Process the entire text first to get global sentence and word mapping
         globalProcessedText = processTextForSpeech(text);
+
+        console.log(
+            `Processed text has ${globalProcessedText.sentences.length} sentences`
+        );
+
+        // Validate the startSentenceIndex
+        if (startSentenceIndex >= globalProcessedText.sentences.length) {
+            console.warn(
+                `Invalid startSentenceIndex: ${startSentenceIndex}, max: ${
+                    globalProcessedText.sentences.length - 1
+                }. Defaulting to 0.`
+            );
+            startSentenceIndex = 0;
+        }
 
         // Split text into manageable chunks
         textChunks = splitTextIntoChunks(text);
@@ -480,75 +528,94 @@ export const speakText = async (text, startSentenceIndex = 0) => {
                     ? chunkOffsets[chunkIndex + 1]
                     : text.length;
 
+            console.log(
+                `Processing chunk ${chunkIndex}: chars ${chunkStart}-${chunkEnd}`
+            );
+
             // Process this chunk to get its local sentences
             const chunkProcessed = processTextForSpeech(textChunks[chunkIndex]);
+            console.log(
+                `Chunk ${chunkIndex} has ${chunkProcessed.sentences.length} local sentences`
+            );
 
             // For each sentence in the global text, check if it's in this chunk
-            globalProcessedText.sentences.forEach((_, globalSentenceIndex) => {
-                // Find the first word of this sentence in the global word map
-                const sentenceWords = globalProcessedText.wordMap.filter(
-                    (w) => w.sentenceIndex === globalSentenceIndex
-                );
+            globalProcessedText.sentences.forEach(
+                (sentence, globalSentenceIndex) => {
+                    // Find the first word of this sentence in the global word map
+                    const sentenceWords = globalProcessedText.wordMap.filter(
+                        (w) => w.sentenceIndex === globalSentenceIndex
+                    );
 
-                if (sentenceWords.length > 0) {
-                    const firstWord = sentenceWords[0];
+                    if (sentenceWords.length > 0) {
+                        const firstWord = sentenceWords[0];
 
-                    // Check if this sentence starts in the current chunk
-                    if (
-                        firstWord.startChar >= chunkStart &&
-                        firstWord.startChar < chunkEnd
-                    ) {
-                        // This sentence starts in this chunk
-                        // Find the local sentence index
-                        const localCharIndex = firstWord.startChar - chunkStart;
-
-                        // Find which local sentence this corresponds to
-                        for (
-                            let localSentenceIndex = 0;
-                            localSentenceIndex <
-                            chunkProcessed.sentences.length;
-                            localSentenceIndex++
+                        // Check if this sentence starts in the current chunk
+                        if (
+                            firstWord.startChar >= chunkStart &&
+                            firstWord.startChar < chunkEnd
                         ) {
-                            const localSentenceWords =
-                                chunkProcessed.wordMap.filter(
-                                    (w) =>
-                                        w.sentenceIndex === localSentenceIndex
-                                );
+                            console.log(
+                                `Global sentence ${globalSentenceIndex} starts in chunk ${chunkIndex} at char ${firstWord.startChar}`
+                            );
 
-                            if (localSentenceWords.length > 0) {
-                                const localFirstWord = localSentenceWords[0];
+                            // This sentence starts in this chunk
+                            // Find the local sentence index
+                            const localCharIndex =
+                                firstWord.startChar - chunkStart;
 
-                                // If this local sentence starts at or before our target position
-                                // and is the last such sentence, it's our match
-                                if (
-                                    localFirstWord.startChar <= localCharIndex
-                                ) {
-                                    // Check if there's a next sentence that's closer
-                                    const nextLocalSentenceWords =
-                                        chunkProcessed.wordMap.filter(
-                                            (w) =>
-                                                w.sentenceIndex ===
-                                                localSentenceIndex + 1
-                                        );
+                            // Find which local sentence this corresponds to
+                            for (
+                                let localSentenceIndex = 0;
+                                localSentenceIndex <
+                                chunkProcessed.sentences.length;
+                                localSentenceIndex++
+                            ) {
+                                const localSentenceWords =
+                                    chunkProcessed.wordMap.filter(
+                                        (w) =>
+                                            w.sentenceIndex ===
+                                            localSentenceIndex
+                                    );
 
+                                if (localSentenceWords.length > 0) {
+                                    const localFirstWord =
+                                        localSentenceWords[0];
+
+                                    // If this local sentence starts at or before our target position
+                                    // and is the last such sentence, it's our match
                                     if (
-                                        nextLocalSentenceWords.length === 0 ||
-                                        nextLocalSentenceWords[0].startChar >
-                                            localCharIndex
+                                        localFirstWord.startChar <=
+                                        localCharIndex
                                     ) {
-                                        // This is the right local sentence
-                                        // Map the global sentence index to this chunk and local sentence
+                                        // Check if there's a next sentence that's closer
+                                        const nextLocalSentenceWords =
+                                            chunkProcessed.wordMap.filter(
+                                                (w) =>
+                                                    w.sentenceIndex ===
+                                                    localSentenceIndex + 1
+                                            );
+
                                         if (
-                                            !sentenceIndicesMap[
-                                                globalSentenceIndex
-                                            ]
+                                            nextLocalSentenceWords.length ===
+                                                0 ||
+                                            nextLocalSentenceWords[0]
+                                                .startChar > localCharIndex
                                         ) {
-                                            sentenceIndicesMap[
-                                                globalSentenceIndex
-                                            ] = {
-                                                chunkIndex,
-                                                localSentenceIndex,
-                                            };
+                                            // This is the right local sentence
+                                            // Map the global sentence index to this chunk and local sentence
+                                            // Use the number as the key, not a string
+                                            const key = globalSentenceIndex;
+
+                                            if (!sentenceIndicesMap[key]) {
+                                                sentenceIndicesMap[key] = {
+                                                    chunkIndex,
+                                                    localSentenceIndex,
+                                                };
+
+                                                console.log(
+                                                    `Mapped global sentence ${key} to chunk ${chunkIndex}, local sentence ${localSentenceIndex}`
+                                                );
+                                            }
                                         }
                                     }
                                 }
@@ -556,7 +623,7 @@ export const speakText = async (text, startSentenceIndex = 0) => {
                         }
                     }
                 }
-            });
+            );
         }
 
         // Set chunking state
@@ -567,14 +634,38 @@ export const speakText = async (text, startSentenceIndex = 0) => {
         let startChunkIndex = 0;
         let localStartSentenceIndex = 0;
 
-        if (startSentenceIndex > 0 && sentenceIndicesMap[startSentenceIndex]) {
-            startChunkIndex = sentenceIndicesMap[startSentenceIndex].chunkIndex;
-            localStartSentenceIndex =
-                sentenceIndicesMap[startSentenceIndex].localSentenceIndex;
+        console.log(
+            `Sentence indices map:`,
+            JSON.stringify(sentenceIndicesMap)
+        );
+
+        if (startSentenceIndex > 0) {
+            // Convert to number to ensure consistent key type
+            const key = Number(startSentenceIndex);
+
+            // Check if the key exists in the map
+            if (sentenceIndicesMap.hasOwnProperty(key)) {
+                startChunkIndex = sentenceIndicesMap[key].chunkIndex;
+                localStartSentenceIndex =
+                    sentenceIndicesMap[key].localSentenceIndex;
+                console.log(
+                    `Found mapping for sentence ${key}: chunk ${startChunkIndex}, local index ${localStartSentenceIndex}`
+                );
+            } else {
+                console.warn(
+                    `No mapping found for sentence index ${key}. Starting from the beginning.`
+                );
+                startSentenceIndex = 0;
+            }
+        } else {
+            console.log(`Starting from the first sentence (index 0)`);
         }
 
         // Start speaking from the appropriate chunk
         currentChunkIndex = startChunkIndex;
+        console.log(
+            `Starting speech from chunk ${currentChunkIndex}, local sentence index ${localStartSentenceIndex}`
+        );
 
         const success = await speakChunk(
             textChunks[currentChunkIndex],
@@ -584,6 +675,8 @@ export const speakText = async (text, startSentenceIndex = 0) => {
                 currentChunkIndex === textChunks.length - 1,
             startSentenceIndex
         );
+
+        console.log(`speakChunk result: ${success}`);
 
         return success;
     } catch (error) {

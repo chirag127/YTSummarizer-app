@@ -274,6 +274,66 @@ const SummaryScreen = ({ route, navigation }) => {
         }
     };
 
+    // Handle sentence tap (double-tap gesture)
+    const handleSentenceTap = async (sentenceIndex) => {
+        try {
+            console.log(
+                `Double-tap detected on sentence index: ${sentenceIndex}`
+            );
+
+            // Validate inputs
+            if (!processedText || !summary?.summary_text) {
+                console.warn(
+                    "Cannot start TTS: Missing processed text or summary text"
+                );
+                return;
+            }
+
+            // Ensure sentence index is valid
+            const sentenceCount = processedText.sentences?.length || 0;
+            console.log(`Total sentences: ${sentenceCount}`);
+
+            if (sentenceIndex < 0 || sentenceIndex >= sentenceCount) {
+                console.warn(
+                    `Invalid sentence index: ${sentenceIndex}. Valid range: 0-${
+                        sentenceCount - 1
+                    }`
+                );
+                // Default to first sentence if index is invalid
+                sentenceIndex = 0;
+            }
+
+            // Log the sentence content for debugging
+            if (processedText.sentences[sentenceIndex]) {
+                console.log(
+                    `Starting TTS from sentence: "${processedText.sentences[sentenceIndex].text}"`
+                );
+            }
+
+            // Stop any ongoing speech
+            await stopSpeaking();
+
+            // Update the current sentence
+            setCurrentSentence(sentenceIndex);
+
+            // Use plain text for speech
+            const plainText = parseMarkdownToPlainText(summary.summary_text);
+
+            // Start speaking from the tapped sentence
+            console.log(
+                `Calling speakText with sentenceIndex: ${sentenceIndex}`
+            );
+            const success = await speakText(plainText, sentenceIndex);
+            console.log(`TTS started successfully: ${success}`);
+
+            setIsPlaying(success);
+        } catch (error) {
+            console.error("Error handling sentence tap:", error);
+            // Gracefully handle the error
+            setIsPlaying(false);
+        }
+    };
+
     // Handle share
     const handleShare = async () => {
         try {
@@ -619,6 +679,7 @@ const SummaryScreen = ({ route, navigation }) => {
                     currentSentence={currentSentence}
                     currentWord={currentWord}
                     scrollViewRef={scrollViewRef}
+                    onSentenceTap={handleSentenceTap}
                 />
 
                 {/* Other Summaries */}
