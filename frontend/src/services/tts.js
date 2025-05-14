@@ -208,20 +208,23 @@ const splitTextIntoChunks = (text) => {
 // Process text to split into sentences and words for highlighting
 export const processTextForSpeech = (text) => {
     // Split text into sentences
-    const sentences = text.split(/(?<=[.!?])\s+/);
+    const sentenceStrings = text.split(/(?<=[.!?])\s+/);
 
-    // Create a map of word positions
+    // Create a map of word positions and structured sentences
     let wordMap = [];
+    let sentences = [];
     let charIndex = 0;
 
-    sentences.forEach((sentence, sentenceIndex) => {
+    sentenceStrings.forEach((sentenceString, sentenceIndex) => {
         // Split sentence into words
-        const words = sentence.split(/\s+/);
+        const wordStrings = sentenceString.split(/\s+/);
+        const sentenceWords = [];
 
-        words.forEach((word, wordIndex) => {
+        wordStrings.forEach((word, wordIndex) => {
             // Skip empty words
             if (word.trim() === "") return;
 
+            // Add to the word map
             wordMap.push({
                 word,
                 sentenceIndex,
@@ -230,8 +233,17 @@ export const processTextForSpeech = (text) => {
                 endChar: charIndex + word.length,
             });
 
+            // Add to the sentence words array
+            sentenceWords.push(word);
+
             // Update character index (add word length + 1 for space)
             charIndex += word.length + 1;
+        });
+
+        // Add the structured sentence with its words
+        sentences.push({
+            text: sentenceString,
+            words: sentenceWords,
         });
     });
 

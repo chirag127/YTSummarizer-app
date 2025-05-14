@@ -6,7 +6,10 @@ module.exports = function (api) {
 
     return {
         presets: ["babel-preset-expo"],
-        plugins: ["react-native-reanimated/plugin"],
+        plugins: [
+            "react-native-reanimated/plugin",
+            "@babel/plugin-transform-runtime",
+        ],
         env: {
             production: {
                 plugins: ["transform-remove-console"],

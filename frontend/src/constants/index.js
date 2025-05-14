@@ -1,6 +1,5 @@
-export const API_BASE_URL =
-    "https://ytsummarizer2-react-native-expo-app.onrender.com";
-// export const API_BASE_URL = "http://192.168.31.232:8000";
+const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
+// const LOCAL_API_BASE_URL = "http://192.168.31.232:8000";
 
 // API Key Selection Modes
 export const API_KEY_SELECTION_MODES = [
@@ -157,3 +156,6 @@ export const TTS_PITCH_OPTIONS = [
     { value: 1.5, label: "1.5x" },
     { value: 2.0, label: "2.0x" },
 ];
+
+// Export API_BASE_URL
+export { API_BASE_URL };
