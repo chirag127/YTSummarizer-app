@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
     StyleSheet,
     View,
@@ -8,19 +8,26 @@ import {
     Platform,
     SafeAreaView,
     Linking,
+    Text,
+    TouchableOpacity,
+    ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 
 // Import components, services, and utilities
 import { generateSummary } from "../services/api";
+import queueService from "../services/queueService";
 import {
     COLORS,
     SPACING,
     SUMMARY_TYPES,
     SUMMARY_LENGTHS,
     SCREENS,
+    FONT_SIZES,
 } from "../constants";
 
 // Import home components
@@ -43,22 +50,21 @@ const HomeScreen = ({ navigation, route }) => {
     const [summaryType, setSummaryType] = useState(SUMMARY_TYPES[0].id);
     const [summaryLength, setSummaryLength] = useState(SUMMARY_LENGTHS[1].id);
     const [elapsedTime, setElapsedTime] = useState(0);
+    const [queueCount, setQueueCount] = useState(0); // Add queue count state
 
     // Refs
     const timerRef = useRef(null);
     const abortControllerRef = useRef(null);
-    const startTimeRef = useRef(null); // Add ref for tracking start time
+    const startTimeRef = useRef(null);
 
     // Function to handle shared text (URLs)
     const handleSharedText = async () => {
         try {
-            // Check if app was opened from a share intent
             const initialUrl = await Linking.getInitialURL();
             if (initialUrl) {
                 console.log("App opened from URL:", initialUrl);
                 setUrl(initialUrl);
 
-                // Enhanced YouTube URL detection
                 const isYouTubeUrl =
                     initialUrl.includes("youtube.com/watch") ||
                     initialUrl.includes("youtu.be/") ||
@@ -69,24 +75,16 @@ const HomeScreen = ({ navigation, route }) => {
                     initialUrl.includes("youtube.com/live/") ||
                     initialUrl.includes("m.youtube.com/live/");
 
-                // Process the URL immediately if it's a YouTube URL
                 if (isYouTubeUrl) {
                     console.log(
                         "Auto-processing YouTube URL from initialUrl:",
                         initialUrl
                     );
-                    // Use a timeout to ensure state is updated
                     setTimeout(() => {
                         processUrl(initialUrl);
-                    }, 300); // Reduced timeout for faster processing
+                    }, 300);
                 }
             }
-
-            // For Android and iOS, we rely on the intent filters and URL schemes
-            // defined in app.json to handle shared content
-            console.log(
-                "Using Expo's built-in URL handling for shared content in HomeScreen"
-            );
         } catch (error) {
             console.error("Error handling shared text:", error);
         }
@@ -94,13 +92,11 @@ const HomeScreen = ({ navigation, route }) => {
 
     // Function to handle cancellation of summary generation
     const handleCancelSummary = () => {
-        // Cancel the ongoing API request
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
         }
 
-        // Stop the timer
         if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
@@ -108,37 +104,25 @@ const HomeScreen = ({ navigation, route }) => {
 
         setIsLoading(false);
         setElapsedTime(0);
-        startTimeRef.current = null; // Reset start time ref
+        startTimeRef.current = null;
     };
 
     // Helper function to process a URL directly
-    const processUrl = React.useCallback(
+    const processUrl = useCallback(
         async (urlToProcess) => {
-            if (!urlToProcess || !urlToProcess.trim()) {
-                return;
-            }
+            if (!isValidUrl || !urlToProcess) return;
 
-            // Reset timer and start loading
-            setElapsedTime(0);
             setIsLoading(true);
-
-            // Create a new AbortController
+            startTimeRef.current = Date.now();
             abortControllerRef.current = new AbortController();
 
-            // Start the timer using the ref for consistent access
-            startTimeRef.current = Date.now();
             timerRef.current = setInterval(() => {
-                const currentTime = Date.now();
-                const elapsed = Math.floor(
-                    (currentTime - startTimeRef.current) / 1000
+                setElapsedTime(
+                    Math.floor((Date.now() - startTimeRef.current) / 1000)
                 );
-                setElapsedTime(elapsed);
             }, 1000);
 
             try {
-                console.log("Processing URL directly:", urlToProcess);
-
-                // Process URL without showing alert popup
                 const summary = await generateSummary(
                     urlToProcess,
                     summaryType,
@@ -146,17 +130,17 @@ const HomeScreen = ({ navigation, route }) => {
                     abortControllerRef.current.signal
                 );
 
-                // Calculate the elapsed time using the ref for accuracy
                 const timeTaken = Math.floor(
                     (Date.now() - startTimeRef.current) / 1000
                 );
-                summary.timeTaken = timeTaken > 0 ? timeTaken : 1; // Ensure at least 1 second is shown
+                summary.timeTaken = timeTaken > 0 ? timeTaken : 1;
 
-                navigation.navigate(SCREENS.SUMMARY, { summary });
+                navigation.push(SCREENS.SUMMARY, { summary });
+
+                refreshQueueCount();
             } catch (error) {
                 console.error("Error processing URL:", error);
 
-                // Only show alert if not aborted by user
                 if (error.name !== "AbortError") {
                     Alert.alert(
                         "Error",
@@ -164,21 +148,36 @@ const HomeScreen = ({ navigation, route }) => {
                     );
                 }
             } finally {
-                // Clean up timer
                 if (timerRef.current) {
                     clearInterval(timerRef.current);
                     timerRef.current = null;
                 }
-
                 setIsLoading(false);
+                setElapsedTime(0);
                 abortControllerRef.current = null;
-                startTimeRef.current = null; // Reset start time ref
+                startTimeRef.current = null;
             }
         },
-        [summaryType, summaryLength, navigation]
+        [summaryType, summaryLength, navigation, refreshQueueCount]
     );
 
-    // Load last used settings and check for shared content
+    // Add function to refresh queue count
+    const refreshQueueCount = useCallback(async () => {
+        try {
+            const queue = await queueService.getQueue();
+            setQueueCount(queue.length);
+        } catch (error) {
+            console.error("Error refreshing queue count:", error);
+        }
+    }, []);
+
+    // Add effect to refresh queue count when screen focuses
+    useFocusEffect(
+        useCallback(() => {
+            refreshQueueCount();
+        }, [refreshQueueCount])
+    );
+
     useEffect(() => {
         const loadLastSettings = async () => {
             try {
@@ -196,13 +195,11 @@ const HomeScreen = ({ navigation, route }) => {
         };
 
         loadLastSettings();
-        handleSharedText(); // Check for shared content when component mounts
+        handleSharedText();
 
-        // No cleanup needed for Expo's URL handling
         return () => {};
     }, []);
 
-    // Save settings when changed
     useEffect(() => {
         const saveSettings = async () => {
             try {
@@ -218,13 +215,11 @@ const HomeScreen = ({ navigation, route }) => {
         saveSettings();
     }, [summaryType, summaryLength]);
 
-    // Handle URL input change
     const handleUrlChange = (text) => {
         setUrl(text);
-        setIsValidUrl(true); // Reset validation on change
+        setIsValidUrl(true);
     };
 
-    // Handle clipboard paste
     const handlePasteFromClipboard = async () => {
         try {
             const clipboardContent = await Clipboard.getStringAsync();
@@ -238,25 +233,20 @@ const HomeScreen = ({ navigation, route }) => {
         }
     };
 
-    // Handle URL submission from the UI
     const handleSubmit = () => {
-        // Basic validation - just check if URL is not empty
         if (!url.trim()) {
             setIsValidUrl(false);
             return;
         }
 
-        // Use the common processUrl function
         processUrl(url);
     };
 
-    // Handle shared URLs from navigation params
     useEffect(() => {
-        // Check if we have a shared URL from navigation params
         if (route.params?.sharedUrl) {
             const sharedUrl = route.params.sharedUrl;
-            const timestamp = route.params.timestamp || 0; // Get timestamp if available
-            const autoProcess = route.params.autoProcess || false; // Check if auto-processing is requested
+            const timestamp = route.params.timestamp || 0;
+            const autoProcess = route.params.autoProcess || false;
 
             console.log(
                 "Received shared URL in HomeScreen:",
@@ -267,20 +257,17 @@ const HomeScreen = ({ navigation, route }) => {
                 autoProcess
             );
 
-            // Set the URL in the input field
             setUrl(sharedUrl);
 
-            // Always auto-process shared URLs as per the requirement
             const timer = setTimeout(() => {
                 console.log(
                     "Auto-processing shared URL in HomeScreen:",
                     sharedUrl
                 );
                 if (sharedUrl) {
-                    // Process the URL directly without relying on state
                     processUrl(sharedUrl);
                 }
-            }, 300); // Reduced delay for faster processing while ensuring state is updated
+            }, 300);
 
             return () => clearTimeout(timer);
         }
@@ -304,6 +291,55 @@ const HomeScreen = ({ navigation, route }) => {
                     keyboardShouldPersistTaps="handled"
                 >
                     <HomeHeader />
+
+                    {queueCount > 0 && (
+                        <View style={styles.queueIndicator}>
+                            <Text style={styles.queueText}>
+                                {queueCount} video{queueCount !== 1 ? "s" : ""}{" "}
+                                in queue
+                            </Text>
+                        </View>
+                    )}
+
+                    {isLoading && (
+                        <TouchableOpacity
+                            style={styles.addAnotherButton}
+                            onPress={() => {
+                                navigation.push("Home");
+                            }}
+                        >
+                            <View style={styles.addAnotherContent}>
+                                <Ionicons
+                                    name="add-circle-outline"
+                                    size={24}
+                                    color={COLORS.primary}
+                                />
+                                <Text style={styles.addAnotherText}>
+                                    Add Another Video to Queue
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+
+                    {isLoading && (
+                        <View style={styles.loadingIndicator}>
+                            <ActivityIndicator
+                                size="large"
+                                color={COLORS.primary}
+                            />
+                            <Text style={styles.loadingText}>
+                                Generating summary... ({elapsedTime}s)
+                            </Text>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={handleCancelSummary}
+                            >
+                                <Text style={styles.cancelButtonText}>
+                                    Cancel
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
                     <VideoInput
                         url={url}
@@ -342,6 +378,60 @@ const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
         padding: SPACING.lg,
+    },
+    queueIndicator: {
+        backgroundColor: COLORS.primaryLight,
+        padding: SPACING.sm,
+        borderRadius: 8,
+        marginBottom: SPACING.md,
+        alignItems: 'center',
+    },
+    queueText: {
+        color: COLORS.primary,
+        fontSize: FONT_SIZES.md,
+        fontWeight: '600',
+    },
+    addAnotherButton: {
+        backgroundColor: COLORS.backgroundSecondary,
+        padding: SPACING.md,
+        borderRadius: 8,
+        marginBottom: SPACING.md,
+        borderWidth: 1,
+        borderColor: COLORS.primary,
+    },
+    addAnotherContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: SPACING.sm,
+    },
+    addAnotherText: {
+        color: COLORS.primary,
+        fontSize: FONT_SIZES.md,
+        fontWeight: '600',
+    },
+    loadingIndicator: {
+        alignItems: 'center',
+        marginBottom: SPACING.lg,
+        padding: SPACING.md,
+        backgroundColor: COLORS.backgroundSecondary,
+        borderRadius: 8,
+    },
+    loadingText: {
+        marginTop: SPACING.sm,
+        color: COLORS.text,
+        fontSize: FONT_SIZES.md,
+    },
+    cancelButton: {
+        marginTop: SPACING.md,
+        padding: SPACING.sm,
+        backgroundColor: COLORS.error,
+        borderRadius: 4,
+    },
+    cancelButtonText: {
+        color: COLORS.white,
+        fontSize: FONT_SIZES.sm,
+        fontWeight: '600',
     },
 });
 
