@@ -1,7 +1,9 @@
 import React, { useCallback } from "react";
 import { StyleSheet, FlatList, RefreshControl } from "react-native";
 import PropTypes from "prop-types";
-import { COLORS, SPACING } from "../../constants";
+import { SPACING } from "../../constants";
+import { useTheme } from "../../context/ThemeContext";
+import useThemedStyles from "../../hooks/useThemedStyles";
 
 // Import components
 import HistoryItem from "./HistoryItem";
@@ -48,6 +50,17 @@ const HistoryList = ({
     onCreateNew,
     formatDate,
 }) => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        listContent: {
+            paddingVertical: SPACING.md,
+            paddingHorizontal: SPACING.xs, // Reduced horizontal padding to accommodate wider items
+            flexGrow: 1,
+        },
+    }));
     // Render item
     const renderItem = useCallback(
         ({ item }) => (
@@ -115,8 +128,8 @@ const HistoryList = ({
                 <RefreshControl
                     refreshing={isRefreshing}
                     onRefresh={onRefresh}
-                    colors={[COLORS.primary]}
-                    tintColor={COLORS.primary}
+                    colors={[colors.primary]}
+                    tintColor={colors.primary}
                 />
             }
         />
@@ -141,13 +154,5 @@ HistoryList.propTypes = {
     onCreateNew: PropTypes.func.isRequired,
     formatDate: PropTypes.func.isRequired,
 };
-
-const styles = StyleSheet.create({
-    listContent: {
-        paddingVertical: SPACING.md,
-        paddingHorizontal: SPACING.xs, // Reduced horizontal padding to accommodate wider items
-        flexGrow: 1,
-    },
-});
 
 export default React.memo(HistoryList);

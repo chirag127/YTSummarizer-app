@@ -2,7 +2,9 @@ import React from "react";
 import { StyleSheet, View, Text, Image, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import PropTypes from "prop-types";
-import { COLORS, SPACING, FONT_SIZES, SHADOWS } from "../../constants";
+import { SPACING, FONT_SIZES, SHADOWS } from "../../constants";
+import { useTheme } from "../../context/ThemeContext";
+import useThemedStyles from "../../hooks/useThemedStyles";
 
 /**
  * HistoryItem component for rendering individual summary items
@@ -16,6 +18,79 @@ import { COLORS, SPACING, FONT_SIZES, SHADOWS } from "../../constants";
  * @returns {React.ReactElement} HistoryItem component
  */
 const HistoryItem = ({ item, onPress, onToggleStar, onDelete, formatDate }) => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        summaryItem: {
+            flexDirection: "column", // Changed from row to column
+            backgroundColor: colors.background,
+            borderRadius: 8,
+            marginBottom: SPACING.md,
+            marginHorizontal: SPACING.xs,
+            padding: SPACING.lg,
+            width: "98%",
+            alignSelf: "center",
+            ...SHADOWS.medium,
+        },
+        topContainer: {
+            flexDirection: "row", // This row contains thumbnail, metadata, and actions
+            marginBottom: SPACING.md, // Add space between top container and title
+        },
+        thumbnail: {
+            width: 100,
+            height: 75,
+            borderRadius: 6,
+            marginRight: SPACING.md,
+        },
+        metadataContainer: {
+            flex: 1, // Take available space
+            justifyContent: "center", // Center content vertically
+        },
+        summaryTitle: {
+            fontSize: FONT_SIZES.lg,
+            fontWeight: "600",
+            color: colors.text,
+            lineHeight: FONT_SIZES.lg * 1.3,
+            marginTop: SPACING.xs, // Add space above title
+        },
+        summaryDate: {
+            fontSize: FONT_SIZES.sm,
+            color: colors.textSecondary,
+            marginBottom: SPACING.xs, // Reduced margin
+        },
+        summaryTypeContainer: {
+            flexDirection: "row",
+            marginTop: SPACING.xs, // Added top margin
+        },
+        badge: {
+            paddingHorizontal: SPACING.sm,
+            paddingVertical: SPACING.xs / 2, // Reduced vertical padding for more compact badges
+            borderRadius: 6,
+            marginRight: SPACING.sm,
+        },
+        typeBadge: {
+            backgroundColor: colors.primary + "30", // Increased opacity from 20% to 30%
+        },
+        lengthBadge: {
+            backgroundColor: colors.secondary + "30", // Increased opacity from 20% to 30%
+        },
+        badgeText: {
+            fontSize: FONT_SIZES.xs, // Changed back to xs for more compact badges
+            fontWeight: "500",
+            color: colors.text,
+        },
+        actionsContainer: {
+            justifyContent: "space-between",
+            paddingLeft: SPACING.sm,
+            marginLeft: SPACING.xs,
+        },
+        actionButton: {
+            padding: SPACING.xs,
+            marginVertical: SPACING.xs,
+        },
+    }));
     return (
         <TouchableOpacity
             style={styles.summaryItem}
@@ -58,8 +133,8 @@ const HistoryItem = ({ item, onPress, onToggleStar, onDelete, formatDate }) => {
                             size={20}
                             color={
                                 item.is_starred
-                                    ? COLORS.accent
-                                    : COLORS.textSecondary
+                                    ? colors.accent
+                                    : colors.textSecondary
                             }
                         />
                     </TouchableOpacity>
@@ -70,7 +145,7 @@ const HistoryItem = ({ item, onPress, onToggleStar, onDelete, formatDate }) => {
                         <Ionicons
                             name="trash-outline"
                             size={20}
-                            color={COLORS.error}
+                            color={colors.error}
                         />
                     </TouchableOpacity>
                 </View>
@@ -97,75 +172,5 @@ HistoryItem.propTypes = {
     onDelete: PropTypes.func.isRequired,
     formatDate: PropTypes.func.isRequired,
 };
-
-const styles = StyleSheet.create({
-    summaryItem: {
-        flexDirection: "column", // Changed from row to column
-        backgroundColor: COLORS.background,
-        borderRadius: 8,
-        marginBottom: SPACING.md,
-        marginHorizontal: SPACING.xs,
-        padding: SPACING.lg,
-        width: "98%",
-        alignSelf: "center",
-        ...SHADOWS.medium,
-    },
-    topContainer: {
-        flexDirection: "row", // This row contains thumbnail, metadata, and actions
-        marginBottom: SPACING.md, // Add space between top container and title
-    },
-    thumbnail: {
-        width: 100,
-        height: 75,
-        borderRadius: 6,
-        marginRight: SPACING.md,
-    },
-    metadataContainer: {
-        flex: 1, // Take available space
-        justifyContent: "center", // Center content vertically
-    },
-    summaryTitle: {
-        fontSize: FONT_SIZES.lg,
-        fontWeight: "600",
-        color: COLORS.text,
-        lineHeight: FONT_SIZES.lg * 1.3,
-        marginTop: SPACING.xs, // Add space above title
-    },
-    summaryDate: {
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.textSecondary,
-        marginBottom: SPACING.xs, // Reduced margin
-    },
-    summaryTypeContainer: {
-        flexDirection: "row",
-        marginTop: SPACING.xs, // Added top margin
-    },
-    badge: {
-        paddingHorizontal: SPACING.sm,
-        paddingVertical: SPACING.xs / 2, // Reduced vertical padding for more compact badges
-        borderRadius: 6,
-        marginRight: SPACING.sm,
-    },
-    typeBadge: {
-        backgroundColor: COLORS.primary + "30", // Increased opacity from 20% to 30%
-    },
-    lengthBadge: {
-        backgroundColor: COLORS.secondary + "30", // Increased opacity from 20% to 30%
-    },
-    badgeText: {
-        fontSize: FONT_SIZES.xs, // Changed back to xs for more compact badges
-        fontWeight: "500",
-        color: COLORS.text,
-    },
-    actionsContainer: {
-        justifyContent: "space-between",
-        paddingLeft: SPACING.sm,
-        marginLeft: SPACING.xs,
-    },
-    actionButton: {
-        padding: SPACING.xs,
-        marginVertical: SPACING.xs,
-    },
-});
 
 export default React.memo(HistoryItem);

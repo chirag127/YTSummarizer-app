@@ -4,6 +4,7 @@ export { default as ApiKeySection } from "./ApiKeySection";
 export { default as BackendUrlSection } from "./BackendUrlSection";
 export { default as NetworkStatusSection } from "./NetworkStatusSection";
 export { default as OfflineDataSection } from "./OfflineDataSection";
+export { default as ThemeSection } from "./ThemeSection";
 export { default as TimeZoneSection } from "./TimeZoneSection";
 export { default as TTSPitchSection } from "./TTSPitchSection";
 export { default as TTSRateSection } from "./TTSRateSection";

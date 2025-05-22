@@ -1,5 +1,9 @@
-import React, { useEffect, useRef } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useEffect, useRef, useMemo } from "react";
+import {
+    NavigationContainer,
+    DefaultTheme,
+    DarkTheme,
+} from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,8 +16,9 @@ import QAScreen from "../screens/QAScreen";
 import HistoryScreen from "../screens/HistoryScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
-// Import constants
-import { SCREENS, COLORS, TAB_ICONS } from "../constants";
+// Import constants and theme
+import { SCREENS, TAB_ICONS } from "../constants";
+import { useTheme } from "../context/ThemeContext";
 
 // Create navigators
 const Tab = createBottomTabNavigator();
@@ -21,13 +26,15 @@ const HomeStack = createNativeStackNavigator();
 
 // Home stack navigator
 const HomeStackNavigator = () => {
+    const { colors } = useTheme();
+
     return (
         <HomeStack.Navigator
             screenOptions={{
                 headerStyle: {
-                    backgroundColor: COLORS.background,
+                    backgroundColor: colors.background,
                 },
-                headerTintColor: COLORS.text,
+                headerTintColor: colors.text,
                 headerTitleStyle: {
                     fontWeight: "600",
                 },
@@ -71,6 +78,29 @@ const HomeStackNavigator = () => {
 // Main tab navigator
 const AppNavigator = () => {
     const navigationRef = useRef(null);
+    const { colors, getCurrentThemeType } = useTheme();
+    const currentThemeType = getCurrentThemeType();
+
+    // Create custom theme based on current theme colors
+    const customTheme = useMemo(() => {
+        // Start with the appropriate base theme
+        const baseTheme =
+            currentThemeType === "light" ? DefaultTheme : DarkTheme;
+
+        // Return customized theme
+        return {
+            ...baseTheme,
+            colors: {
+                ...baseTheme.colors,
+                primary: colors.primary,
+                background: colors.background,
+                card: colors.surface,
+                text: colors.text,
+                border: colors.border,
+                notification: colors.accent,
+            },
+        };
+    }, [colors, currentThemeType]);
 
     // Handle deep links and shared content
     const handleDeepLink = (event) => {
@@ -173,9 +203,10 @@ const AppNavigator = () => {
         return (
             <NavigationContainer
                 ref={navigationRef}
+                theme={customTheme}
                 fallback={
                     <View
-                        style={{ flex: 1, backgroundColor: COLORS.background }}
+                        style={{ flex: 1, backgroundColor: colors.background }}
                     />
                 }
                 onError={(error) => {
@@ -203,9 +234,17 @@ const AppNavigator = () => {
                                 return null;
                             }
                         },
-                        tabBarActiveTintColor: COLORS.primary,
-                        tabBarInactiveTintColor: COLORS.textSecondary,
+                        tabBarActiveTintColor: colors.primary,
+                        tabBarInactiveTintColor: colors.textSecondary,
                         headerShown: route.name !== SCREENS.HOME,
+                        headerStyle: {
+                            backgroundColor: colors.background,
+                        },
+                        headerTintColor: colors.text,
+                        tabBarStyle: {
+                            backgroundColor: colors.background,
+                            borderTopColor: colors.border,
+                        },
                     })}
                 >
                     <Tab.Screen
@@ -238,12 +277,12 @@ const AppNavigator = () => {
                     flex: 1,
                     justifyContent: "center",
                     alignItems: "center",
-                    backgroundColor: COLORS.background,
+                    backgroundColor: colors.background,
                 }}
             >
                 <Text
                     style={{
-                        color: COLORS.error,
+                        color: colors.error,
                         fontSize: 16,
                         marginBottom: 10,
                     }}
@@ -252,7 +291,7 @@ const AppNavigator = () => {
                 </Text>
                 <Text
                     style={{
-                        color: COLORS.text,
+                        color: colors.text,
                         fontSize: 14,
                         textAlign: "center",
                         paddingHorizontal: 20,

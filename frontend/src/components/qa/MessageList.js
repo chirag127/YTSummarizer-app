@@ -1,13 +1,13 @@
-import React from 'react';
-import { StyleSheet, View, FlatList } from 'react-native';
-import PropTypes from 'prop-types';
-import { COLORS, SPACING } from '../../constants';
-import MessageItem from './MessageItem';
-import EmptyState from './EmptyState';
+import React from "react";
+import { StyleSheet, View, FlatList } from "react-native";
+import PropTypes from "prop-types";
+import { COLORS, SPACING } from "../../constants";
+import MessageItem from "./MessageItem";
+import EmptyState from "./EmptyState";
 
 /**
  * Component to render the list of messages in the chat
- * 
+ *
  * @param {Object} props - Component props
  * @param {Array} props.messages - Array of message objects
  * @param {Object} props.flatListRef - Ref for the FlatList
@@ -26,83 +26,85 @@ import EmptyState from './EmptyState';
  * @returns {React.ReactElement} MessageList component
  */
 const MessageList = ({
-  messages,
-  flatListRef,
-  onLongPress,
-  onSpeakMessage,
-  isPlayingTTS,
-  speakingMessageId,
-  processedTexts,
-  currentWord,
-  currentSentence,
-  formatDateWithTimeZone,
-  markdownStyles,
-  messageRefs,
-  sentenceRefs,
-  wordRefs,
+    messages,
+    flatListRef,
+    onLongPress,
+    onSpeakMessage,
+    isPlayingTTS,
+    speakingMessageId,
+    processedTexts,
+    currentWord,
+    currentSentence,
+    formatDateWithTimeZone,
+    markdownStyles,
+    messageRefs,
+    sentenceRefs,
+    wordRefs,
 }) => {
-  const renderItem = ({ item }) => (
-    <MessageItem
-      item={item}
-      onLongPress={onLongPress}
-      onSpeakMessage={onSpeakMessage}
-      isPlayingTTS={isPlayingTTS}
-      speakingMessageId={speakingMessageId}
-      processedTexts={processedTexts}
-      currentWord={currentWord}
-      currentSentence={currentSentence}
-      formatDate={formatDateWithTimeZone}
-      markdownStyles={markdownStyles}
-      sentenceRefs={sentenceRefs}
-      wordRefs={wordRefs}
-    />
-  );
+    const renderItem = ({ item }) => (
+        <MessageItem
+            item={item}
+            onLongPress={onLongPress}
+            onSpeakMessage={onSpeakMessage}
+            isPlayingTTS={isPlayingTTS}
+            speakingMessageId={speakingMessageId}
+            processedTexts={processedTexts}
+            currentWord={currentWord}
+            currentSentence={currentSentence}
+            formatDate={formatDateWithTimeZone}
+            markdownStyles={markdownStyles}
+            sentenceRefs={sentenceRefs}
+            wordRefs={wordRefs}
+        />
+    );
 
-  return (
-    <View style={styles.messagesContainer}>
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderItem}
-        keyExtractor={(item, index) =>
-          item.id || `message-${index}-${Date.now()}`
-        }
-        contentContainerStyle={styles.messageList}
-        ListEmptyComponent={<EmptyState />}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        style={{ flex: 1 }}
-      />
-    </View>
-  );
+    return (
+        <View style={styles.messagesContainer}>
+            <FlatList
+                ref={flatListRef}
+                data={messages}
+                renderItem={renderItem}
+                keyExtractor={(item, index) =>
+                    item.id || `message-${index}-${Date.now()}`
+                }
+                contentContainerStyle={styles.messageList}
+                ListEmptyComponent={<EmptyState />}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                style={{ flex: 1 }}
+            />
+        </View>
+    );
 };
 
 MessageList.propTypes = {
-  messages: PropTypes.array.isRequired,
-  flatListRef: PropTypes.object.isRequired,
-  onLongPress: PropTypes.func.isRequired,
-  onSpeakMessage: PropTypes.func.isRequired,
-  isPlayingTTS: PropTypes.bool.isRequired,
-  speakingMessageId: PropTypes.string,
-  processedTexts: PropTypes.object.isRequired,
-  currentWord: PropTypes.object,
-  currentSentence: PropTypes.number.isRequired,
-  formatDateWithTimeZone: PropTypes.func.isRequired,
-  markdownStyles: PropTypes.object.isRequired,
-  messageRefs: PropTypes.object.isRequired,
-  sentenceRefs: PropTypes.object.isRequired,
-  wordRefs: PropTypes.object.isRequired,
+    messages: PropTypes.array.isRequired,
+    flatListRef: PropTypes.object.isRequired,
+    onLongPress: PropTypes.func.isRequired,
+    onSpeakMessage: PropTypes.func.isRequired,
+    isPlayingTTS: PropTypes.bool.isRequired,
+    speakingMessageId: PropTypes.string,
+    processedTexts: PropTypes.object.isRequired,
+    currentWord: PropTypes.object,
+    currentSentence: PropTypes.number.isRequired,
+    formatDateWithTimeZone: PropTypes.func.isRequired,
+    markdownStyles: PropTypes.object.isRequired,
+    messageRefs: PropTypes.object.isRequired,
+    sentenceRefs: PropTypes.object.isRequired,
+    wordRefs: PropTypes.object.isRequired,
 };
 
 const styles = StyleSheet.create({
-  messagesContainer: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  messageList: {
-    padding: SPACING.md,
-    flexGrow: 1,
-  },
+    messagesContainer: {
+        flex: 1,
+        backgroundColor: COLORS.background,
+        width: "100%",
+    },
+    messageList: {
+        padding: SPACING.md,
+        flexGrow: 1,
+        paddingBottom: SPACING.xl, // Add extra padding at the bottom to ensure messages aren't hidden behind the input
+    },
 });
 
 export default MessageList;

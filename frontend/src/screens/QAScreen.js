@@ -6,13 +6,16 @@ import {
     SafeAreaView,
     Keyboard,
     Platform,
+    KeyboardAvoidingView,
+    TouchableWithoutFeedback,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import NetInfo from "@react-native-community/netinfo";
 
-import { COLORS } from "../constants";
 import { getVideoQAHistory, askVideoQuestion } from "../services/api";
 import { useTimeZone } from "../context/TimeZoneContext";
+import { useTheme } from "../context/ThemeContext";
+import useThemedStyles from "../hooks/useThemedStyles";
 import * as analytics from "../services/analytics";
 import {
     speakText,
@@ -37,6 +40,27 @@ import markdownStyles from "../components/qa/MarkdownStyles";
 const QAScreen = ({ route, navigation }) => {
     // Get video info from route params
     const { summary } = route.params || {};
+
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+        },
+        keyboardAvoidingContainer: {
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between", // This ensures the input stays at the bottom
+        },
+        messagesContainer: {
+            flex: 1, // Takes up available space, pushing input to bottom
+            backgroundColor: colors.background,
+        },
+    }));
 
     // Extract video ID from various URL formats
     const extractVideoId = (url) => {
@@ -106,6 +130,7 @@ const QAScreen = ({ route, navigation }) => {
     const [isRetrying, setIsRetrying] = useState(false);
     const [tokenCount, setTokenCount] = useState(0); // Store the total token count
     const [transcriptTokenCount, setTranscriptTokenCount] = useState(0); // Store the transcript token count
+    const [keyboardHeight, setKeyboardHeight] = useState(0); // Store keyboard height for animation
 
     // TTS state
     const [isPlayingTTS, setIsPlayingTTS] = useState(false);
@@ -277,36 +302,63 @@ const QAScreen = ({ route, navigation }) => {
         return () => unsubscribe();
     }, []);
 
-    // Add keyboard listeners to scroll to bottom when keyboard appears or disappears
+    // Add keyboard listeners to handle keyboard events
     useEffect(() => {
-        const keyboardDidShowListener = Keyboard.addListener(
-            "keyboardDidShow",
-            () => {
-                // Scroll to bottom when keyboard appears
-                if (flatListRef.current && messages.length > 0) {
-                    setTimeout(() => {
-                        flatListRef.current?.scrollToEnd({ animated: true });
-                    }, 100); // Small delay to ensure layout is complete
-                }
-            }
-        );
+        // Use different events for iOS and Android
+        const keyboardShowListener =
+            Platform.OS === "ios"
+                ? Keyboard.addListener("keyboardWillShow", (event) => {
+                      // Store keyboard height for animation
+                      setKeyboardHeight(event.endCoordinates.height);
+                      // Scroll to bottom when keyboard appears
+                      if (flatListRef.current && messages.length > 0) {
+                          setTimeout(() => {
+                              flatListRef.current?.scrollToEnd({
+                                  animated: true,
+                              });
+                          }, 100); // Small delay to ensure layout is complete
+                      }
+                  })
+                : Keyboard.addListener("keyboardDidShow", () => {
+                      // Scroll to bottom when keyboard appears
+                      if (flatListRef.current && messages.length > 0) {
+                          setTimeout(() => {
+                              flatListRef.current?.scrollToEnd({
+                                  animated: true,
+                              });
+                          }, 100); // Small delay to ensure layout is complete
+                      }
+                  });
 
-        const keyboardDidHideListener = Keyboard.addListener(
-            "keyboardDidHide",
-            () => {
-                // Scroll to bottom when keyboard hides
-                if (flatListRef.current && messages.length > 0) {
-                    setTimeout(() => {
-                        flatListRef.current?.scrollToEnd({ animated: true });
-                    }, 100); // Small delay to ensure layout is complete
-                }
-            }
-        );
+        const keyboardHideListener =
+            Platform.OS === "ios"
+                ? Keyboard.addListener("keyboardWillHide", () => {
+                      // Reset keyboard height
+                      setKeyboardHeight(0);
+                      // Scroll to bottom when keyboard hides
+                      if (flatListRef.current && messages.length > 0) {
+                          setTimeout(() => {
+                              flatListRef.current?.scrollToEnd({
+                                  animated: true,
+                              });
+                          }, 100); // Small delay to ensure layout is complete
+                      }
+                  })
+                : Keyboard.addListener("keyboardDidHide", () => {
+                      // Scroll to bottom when keyboard hides
+                      if (flatListRef.current && messages.length > 0) {
+                          setTimeout(() => {
+                              flatListRef.current?.scrollToEnd({
+                                  animated: true,
+                              });
+                          }, 100); // Small delay to ensure layout is complete
+                      }
+                  });
 
         // Clean up listeners
         return () => {
-            keyboardDidShowListener.remove();
-            keyboardDidHideListener.remove();
+            keyboardShowListener.remove();
+            keyboardHideListener.remove();
         };
     }, [messages.length]);
 
@@ -802,57 +854,55 @@ const QAScreen = ({ route, navigation }) => {
                 tokenCount={tokenCount}
             />
 
-            {/* Messages List */}
-            <View style={styles.messagesContainer}>
-                <MessageList
-                    messages={messages}
-                    flatListRef={flatListRef}
-                    onLongPress={handleCopyMessage}
-                    onSpeakMessage={handleSpeakMessage}
-                    isPlayingTTS={isPlayingTTS}
-                    speakingMessageId={speakingMessageId}
-                    processedTexts={processedTexts}
-                    currentWord={currentWord}
-                    currentSentence={currentSentence}
-                    formatDateWithTimeZone={formatDateWithTimeZone}
-                    markdownStyles={markdownStyles}
-                    messageRefs={messageRefs}
-                    sentenceRefs={sentenceRefs}
-                    wordRefs={wordRefs}
+            {/* KeyboardAvoidingView to handle keyboard appearance */}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={styles.keyboardAvoidingContainer}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 60}
+            >
+                {/* Messages List with TouchableWithoutFeedback to dismiss keyboard */}
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <View style={styles.messagesContainer}>
+                        <MessageList
+                            messages={messages}
+                            flatListRef={flatListRef}
+                            onLongPress={handleCopyMessage}
+                            onSpeakMessage={handleSpeakMessage}
+                            isPlayingTTS={isPlayingTTS}
+                            speakingMessageId={speakingMessageId}
+                            processedTexts={processedTexts}
+                            currentWord={currentWord}
+                            currentSentence={currentSentence}
+                            formatDateWithTimeZone={formatDateWithTimeZone}
+                            markdownStyles={markdownStyles}
+                            messageRefs={messageRefs}
+                            sentenceRefs={sentenceRefs}
+                            wordRefs={wordRefs}
+                        />
+
+                        {isLoading && <LoadingIndicator />}
+                        {error && (
+                            <ErrorDisplay
+                                error={error}
+                                onRetry={retryLoadChatHistory}
+                                isRetrying={isRetrying}
+                            />
+                        )}
+                    </View>
+                </TouchableWithoutFeedback>
+
+                {/* Input Container - Now positioned at the bottom */}
+                <InputArea
+                    inputText={inputText}
+                    onChangeText={setInputText}
+                    onSend={handleSend}
+                    isLoading={isLoading}
+                    isOffline={isOffline}
+                    inputRef={inputRef}
                 />
-
-                {isLoading && <LoadingIndicator />}
-                {error && (
-                    <ErrorDisplay
-                        error={error}
-                        onRetry={retryLoadChatHistory}
-                        isRetrying={isRetrying}
-                    />
-                )}
-            </View>
-
-            {/* Input Container */}
-            <InputArea
-                inputText={inputText}
-                onChangeText={setInputText}
-                onSend={handleSend}
-                isLoading={isLoading}
-                isOffline={isOffline}
-                inputRef={inputRef}
-            />
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
-    messagesContainer: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
-});
 
 export default QAScreen;

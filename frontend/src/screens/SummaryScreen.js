@@ -9,6 +9,8 @@ import {
     SafeAreaView,
 } from "react-native";
 import { useTimeZone } from "../context/TimeZoneContext";
+import { useTheme } from "../context/ThemeContext";
+import useThemedStyles from "../hooks/useThemedStyles";
 
 // Import components, services, and utilities
 import {
@@ -35,7 +37,6 @@ import {
     parseMarkdownToPlainText,
 } from "../utils";
 import {
-    COLORS,
     SPACING,
     SUMMARY_TYPES,
     SUMMARY_LENGTHS,
@@ -58,8 +59,31 @@ const SummaryScreen = ({ route, navigation }) => {
     // Get summary from route params
     const { summary } = route.params || {};
 
-    // Get time zone context
+    // Get time zone context and theme
     const { formatDateWithTimeZone } = useTimeZone();
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+        },
+        scrollContent: {
+            padding: SPACING.md,
+        },
+        errorContainer: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: SPACING.lg,
+        },
+        errorText: {
+            fontSize: FONT_SIZES.lg,
+            color: colors.error,
+            textAlign: "center",
+        },
+    }));
 
     // State
     const [isPlaying, setIsPlaying] = useState(false);
@@ -719,26 +743,5 @@ const SummaryScreen = ({ route, navigation }) => {
         </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
-    scrollContent: {
-        padding: SPACING.md,
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: SPACING.lg,
-    },
-    errorText: {
-        fontSize: FONT_SIZES.lg,
-        color: COLORS.error,
-        textAlign: "center",
-    },
-});
 
 export default SummaryScreen;

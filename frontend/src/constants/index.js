@@ -1,5 +1,5 @@
-const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
-// const LOCAL_API_BASE_URL = "http://192.168.31.232:8000";
+// const API_BASE_URL = "https://ytsummarizer2-react-native-expo-app.onrender.com";
+const API_BASE_URL = "http://192.168.31.232:8000";
 
 // API Key Selection Modes
 export const API_KEY_SELECTION_MODES = [
@@ -22,7 +22,9 @@ export const SUMMARY_LENGTHS = [
     { id: "Long", label: "Long" },
 ];
 
-// Colors
+// Default Colors (Light Theme)
+// Note: These are now provided by ThemeContext
+// This export is kept for backward compatibility
 export const COLORS = {
     primary: "#4285F4", // Google Blue
     secondary: "#34A853", // Google Green

@@ -7,6 +7,7 @@ import AppNavigator from "./src/navigation/AppNavigator";
 import * as IntentLauncher from "expo-intent-launcher";
 import { NetworkProvider } from "./src/context/NetworkContext";
 import { TimeZoneProvider } from "./src/context/TimeZoneContext";
+import { ThemeProvider } from "./src/context/ThemeContext";
 import NetworkStatusIndicator from "./src/components/NetworkStatusIndicator";
 import ServerStatusIndicator from "./src/components/ServerStatusIndicator";
 import * as cacheService from "./src/services/cacheService";
@@ -80,27 +81,28 @@ export default function App() {
     }, []);
 
     return (
-        <ErrorBoundary>
-            <SafeAreaProvider>
-                <NetworkProvider>
-                    <TimeZoneProvider>
-                        <GestureHandlerRootView style={styles.container}>
-                            <View style={styles.container}>
-                                <StatusBar style="auto" />
-                                <NetworkStatusIndicator />
-                                {serverStatus && (
-                                    <ServerStatusIndicator
-                                        status={serverStatus.status}
-                                        message={serverStatus.message}
-                                    />
-                                )}
-                                <AppNavigator />
-                            </View>
-                        </GestureHandlerRootView>
-                    </TimeZoneProvider>
-                </NetworkProvider>
-            </SafeAreaProvider>
-        </ErrorBoundary>
+        <SafeAreaProvider>
+            <NetworkProvider>
+                <TimeZoneProvider>
+                    <ThemeProvider>
+                        <ErrorBoundary>
+                            <GestureHandlerRootView style={styles.container}>
+                                <View style={styles.container}>
+                                    <NetworkStatusIndicator />
+                                    {serverStatus && (
+                                        <ServerStatusIndicator
+                                            status={serverStatus.status}
+                                            message={serverStatus.message}
+                                        />
+                                    )}
+                                    <AppNavigator />
+                                </View>
+                            </GestureHandlerRootView>
+                        </ErrorBoundary>
+                    </ThemeProvider>
+                </TimeZoneProvider>
+            </NetworkProvider>
+        </SafeAreaProvider>
     );
 }
 

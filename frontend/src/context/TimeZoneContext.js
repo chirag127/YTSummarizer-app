@@ -40,7 +40,7 @@ export const TimeZoneProvider = ({ children }) => {
 
         // Get available time zones
         const timeZones = moment.tz.names();
-        
+
         // Group time zones by region
         const groupedTimeZones = timeZones.reduce((acc, tz) => {
             const region = tz.split("/")[0];
@@ -50,9 +50,9 @@ export const TimeZoneProvider = ({ children }) => {
             acc[region].push(tz);
             return acc;
         }, {});
-        
+
         setAvailableTimeZones(groupedTimeZones);
-        
+
         loadTimeZoneSettings();
     }, []);
 
@@ -85,19 +85,58 @@ export const TimeZoneProvider = ({ children }) => {
     };
 
     // Format date with current time zone
-    const formatDateWithTimeZone = (dateString, format = "MMM D, YYYY h:mm A") => {
+    const formatDateWithTimeZone = (
+        dateString,
+        format = "MMM D, YYYY h:mm A"
+    ) => {
         if (!dateString) return "";
-        
-        const timeZone = getCurrentTimeZone();
-        return moment(dateString).tz(timeZone).format(format);
+
+        try {
+            const timeZone = getCurrentTimeZone();
+
+            // Check if moment.tz is available and we have a valid time zone
+            if (moment.tz && timeZone) {
+                return moment(dateString).tz(timeZone).format(format);
+            }
+
+            // Fallback to basic moment formatting without time zone
+            return moment(dateString).format(format);
+        } catch (error) {
+            console.error("Error formatting date with time zone:", error);
+
+            // Final fallback to native JavaScript date formatting
+            try {
+                return new Date(dateString).toLocaleString();
+            } catch (e) {
+                return "Invalid date";
+            }
+        }
     };
 
     // Convert date to current time zone
     const convertToTimeZone = (dateString) => {
         if (!dateString) return new Date();
-        
-        const timeZone = getCurrentTimeZone();
-        return moment.tz(dateString, timeZone).toDate();
+
+        try {
+            const timeZone = getCurrentTimeZone();
+
+            // Check if moment.tz is available and we have a valid time zone
+            if (moment.tz && timeZone) {
+                return moment.tz(dateString, timeZone).toDate();
+            }
+
+            // Fallback to basic moment conversion without time zone
+            return moment(dateString).toDate();
+        } catch (error) {
+            console.error("Error converting date to time zone:", error);
+
+            // Final fallback to native JavaScript date
+            try {
+                return new Date(dateString);
+            } catch (e) {
+                return new Date();
+            }
+        }
     };
 
     // Context value

@@ -14,8 +14,10 @@ import {
     getAvailableVoices,
 } from "../services/tts";
 
-import { COLORS, SPACING, FONT_SIZES } from "../constants";
+import { SPACING, FONT_SIZES } from "../constants";
 import { useNetwork } from "../context/NetworkContext";
+import { useTheme } from "../context/ThemeContext";
+import useThemedStyles from "../hooks/useThemedStyles";
 import * as storageService from "../services/storageService";
 import * as cacheService from "../services/cacheService";
 import * as queueService from "../services/queueService";
@@ -29,6 +31,7 @@ import {
     ApiKeySection,
     AnalyticsSection,
     BackendUrlSection,
+    ThemeSection,
     TimeZoneSection,
     TTSRateSection,
     TTSPitchSection,
@@ -38,6 +41,55 @@ import {
 } from "../components/settings";
 
 const SettingsScreen = () => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+        },
+        scrollContent: {
+            padding: SPACING.lg,
+        },
+        loadingContainer: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+        },
+        loadingText: {
+            marginTop: SPACING.md,
+            fontSize: FONT_SIZES.md,
+            color: colors.text,
+        },
+        header: {
+            marginBottom: SPACING.xl,
+        },
+        headerTitle: {
+            fontSize: FONT_SIZES.xxl,
+            fontWeight: "bold",
+            color: colors.text,
+            marginBottom: SPACING.xs,
+        },
+        headerSubtitle: {
+            fontSize: FONT_SIZES.md,
+            color: colors.textSecondary,
+        },
+        sectionHeader: {
+            marginTop: SPACING.xl,
+            marginBottom: SPACING.md,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+            paddingBottom: SPACING.sm,
+        },
+        sectionHeaderText: {
+            fontSize: FONT_SIZES.lg,
+            fontWeight: "600",
+            color: colors.text,
+        },
+    }));
+
     // State
     const [settings, setSettings] = useState({
         rate: 1.0,
@@ -448,7 +500,7 @@ const SettingsScreen = () => {
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size={36} color={COLORS.primary} />
+                <ActivityIndicator size={36} color={colors.primary} />
                 <Text style={styles.loadingText}>Loading settings...</Text>
             </View>
         );
@@ -485,6 +537,12 @@ const SettingsScreen = () => {
                 <BackendUrlSection />
 
                 <AnalyticsSection onShowAnalytics={showAnalytics} />
+
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionHeaderText}>Appearance</Text>
+                </View>
+
+                <ThemeSection />
 
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionHeaderText}>
@@ -528,50 +586,5 @@ const SettingsScreen = () => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
-    scrollContent: {
-        padding: SPACING.lg,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    loadingText: {
-        marginTop: SPACING.md,
-        fontSize: FONT_SIZES.md,
-        color: COLORS.text,
-    },
-    header: {
-        marginBottom: SPACING.xl,
-    },
-    headerTitle: {
-        fontSize: FONT_SIZES.xxl,
-        fontWeight: "bold",
-        color: COLORS.text,
-        marginBottom: SPACING.xs,
-    },
-    headerSubtitle: {
-        fontSize: FONT_SIZES.md,
-        color: COLORS.textSecondary,
-    },
-    sectionHeader: {
-        marginTop: SPACING.xl,
-        marginBottom: SPACING.md,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-        paddingBottom: SPACING.sm,
-    },
-    sectionHeaderText: {
-        fontSize: FONT_SIZES.lg,
-        fontWeight: "600",
-        color: COLORS.text,
-    },
-});
 
 export default SettingsScreen;

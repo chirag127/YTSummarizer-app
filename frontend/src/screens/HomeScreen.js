@@ -22,13 +22,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import { generateSummary } from "../services/api";
 import queueService from "../services/queueService";
 import {
-    COLORS,
     SPACING,
     SUMMARY_TYPES,
     SUMMARY_LENGTHS,
     SCREENS,
     FONT_SIZES,
 } from "../constants";
+import { useTheme } from "../context/ThemeContext";
+import useThemedStyles from "../hooks/useThemedStyles";
 
 // Import home components
 import {
@@ -43,6 +44,9 @@ import {
 const LAST_SETTINGS_KEY = "last_summary_settings";
 
 const HomeScreen = ({ navigation, route }) => {
+    // Get theme colors
+    const { colors } = useTheme();
+
     // State
     const [url, setUrl] = useState("");
     const [isValidUrl, setIsValidUrl] = useState(true);
@@ -56,6 +60,72 @@ const HomeScreen = ({ navigation, route }) => {
     const timerRef = useRef(null);
     const abortControllerRef = useRef(null);
     const startTimeRef = useRef(null);
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+        },
+        scrollContent: {
+            flexGrow: 1,
+            padding: SPACING.lg,
+        },
+        queueIndicator: {
+            backgroundColor: `${colors.primary}20`, // 20% opacity
+            padding: SPACING.sm,
+            borderRadius: 8,
+            marginBottom: SPACING.md,
+            alignItems: "center",
+        },
+        queueText: {
+            color: colors.primary,
+            fontSize: FONT_SIZES.md,
+            fontWeight: "600",
+        },
+        addAnotherButton: {
+            backgroundColor: colors.surface,
+            padding: SPACING.md,
+            borderRadius: 8,
+            marginBottom: SPACING.md,
+            borderWidth: 1,
+            borderColor: colors.primary,
+        },
+        addAnotherContent: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: SPACING.sm,
+        },
+        addAnotherText: {
+            color: colors.primary,
+            fontSize: FONT_SIZES.md,
+            fontWeight: "600",
+        },
+        loadingIndicator: {
+            alignItems: "center",
+            marginBottom: SPACING.lg,
+            padding: SPACING.md,
+            backgroundColor: colors.surface,
+            borderRadius: 8,
+        },
+        loadingText: {
+            marginTop: SPACING.sm,
+            color: colors.text,
+            fontSize: FONT_SIZES.md,
+        },
+        cancelButton: {
+            marginTop: SPACING.md,
+            padding: SPACING.sm,
+            backgroundColor: colors.error,
+            borderRadius: 4,
+        },
+        cancelButtonText: {
+            color: colors.background,
+            fontSize: FONT_SIZES.sm,
+            fontWeight: "600",
+        },
+    }));
 
     // Function to handle shared text (URLs)
     const handleSharedText = async () => {
@@ -312,7 +382,7 @@ const HomeScreen = ({ navigation, route }) => {
                                 <Ionicons
                                     name="add-circle-outline"
                                     size={24}
-                                    color={COLORS.primary}
+                                    color={colors.primary}
                                 />
                                 <Text style={styles.addAnotherText}>
                                     Add Another Video to Queue
@@ -325,7 +395,7 @@ const HomeScreen = ({ navigation, route }) => {
                         <View style={styles.loadingIndicator}>
                             <ActivityIndicator
                                 size="large"
-                                color={COLORS.primary}
+                                color={colors.primary}
                             />
                             <Text style={styles.loadingText}>
                                 Generating summary... ({elapsedTime}s)
@@ -369,70 +439,5 @@ const HomeScreen = ({ navigation, route }) => {
         </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
-    scrollContent: {
-        flexGrow: 1,
-        padding: SPACING.lg,
-    },
-    queueIndicator: {
-        backgroundColor: COLORS.primaryLight,
-        padding: SPACING.sm,
-        borderRadius: 8,
-        marginBottom: SPACING.md,
-        alignItems: 'center',
-    },
-    queueText: {
-        color: COLORS.primary,
-        fontSize: FONT_SIZES.md,
-        fontWeight: '600',
-    },
-    addAnotherButton: {
-        backgroundColor: COLORS.backgroundSecondary,
-        padding: SPACING.md,
-        borderRadius: 8,
-        marginBottom: SPACING.md,
-        borderWidth: 1,
-        borderColor: COLORS.primary,
-    },
-    addAnotherContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: SPACING.sm,
-    },
-    addAnotherText: {
-        color: COLORS.primary,
-        fontSize: FONT_SIZES.md,
-        fontWeight: '600',
-    },
-    loadingIndicator: {
-        alignItems: 'center',
-        marginBottom: SPACING.lg,
-        padding: SPACING.md,
-        backgroundColor: COLORS.backgroundSecondary,
-        borderRadius: 8,
-    },
-    loadingText: {
-        marginTop: SPACING.sm,
-        color: COLORS.text,
-        fontSize: FONT_SIZES.md,
-    },
-    cancelButton: {
-        marginTop: SPACING.md,
-        padding: SPACING.sm,
-        backgroundColor: COLORS.error,
-        borderRadius: 4,
-    },
-    cancelButtonText: {
-        color: COLORS.white,
-        fontSize: FONT_SIZES.sm,
-        fontWeight: '600',
-    },
-});
 
 export default HomeScreen;

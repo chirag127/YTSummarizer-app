@@ -8,8 +8,10 @@ import {
     deleteSummary,
     toggleStarSummary,
 } from "../services/api";
-import { COLORS, SPACING, SCREENS } from "../constants";
+import { SPACING, SCREENS } from "../constants";
 import { useTimeZone } from "../context/TimeZoneContext";
+import { useTheme } from "../context/ThemeContext";
+import useThemedStyles from "../hooks/useThemedStyles";
 
 // Import custom hooks
 import useHistoryPagination from "../hooks/useHistoryPagination";
@@ -20,6 +22,9 @@ import useHistoryFilters from "../hooks/useHistoryFilters";
 import { SearchBar, FilterControls, HistoryList } from "../components/history";
 
 const HistoryScreen = ({ navigation }) => {
+    // Get theme colors
+    const { colors } = useTheme();
+
     // State
     const [summaries, setSummaries] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +42,16 @@ const HistoryScreen = ({ navigation }) => {
 
     // Get time zone context
     const { formatDateWithTimeZone } = useTimeZone();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+            paddingVertical: SPACING.md,
+            paddingHorizontal: SPACING.xs, // Reduced horizontal padding to accommodate wider items
+        },
+    }));
 
     // Fetch summaries
     const fetchSummaries = async (showRefreshing = false, page = 1) => {
@@ -240,14 +255,5 @@ const HistoryScreen = ({ navigation }) => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-        paddingVertical: SPACING.md,
-        paddingHorizontal: SPACING.xs, // Reduced horizontal padding to accommodate wider items
-    },
-});
 
 export default HistoryScreen;

@@ -114,23 +114,20 @@ async def generate_summary(transcript: str, summary_type: SummaryType, summary_l
             logger.warning(f"Error with primary model: {error_message}")
 
             # Check if it's a service unavailable error
-            if "503" in error_message or "UNAVAILABLE" in error_message:
-                logger.info(f"Primary model unavailable, trying fallback model: {fallback_model}")
-                try:
-                    # Try with fallback model
-                    response = client.models.generate_content(
-                        model=fallback_model,
-                        contents=contents,
-                        config=generate_content_config
-                    )
-                    logger.info("Successfully generated summary with fallback model")
-                    return response.text
-                except Exception as fallback_error:
-                    logger.error(f"Error with fallback model: {fallback_error}")
-                    return f"Failed to generate summary: {str(fallback_error)}"
-            else:
-                # For other errors, just return the original error
-                return f"Failed to generate summary: {error_message}"
+
+            logger.info(f"Primary model unavailable, trying fallback model: {fallback_model}")
+            try:
+                # Try with fallback model
+                response = client.models.generate_content(
+                    model=fallback_model,
+                    contents=contents,
+                    config=generate_content_config
+                )
+                logger.info("Successfully generated summary with fallback model")
+                return response.text
+            except Exception as fallback_error:
+                logger.error(f"Error with fallback model: {fallback_error}")
+                return f"Failed to generate summary: {str(fallback_error)}"
     except Exception as e:
         logger.error(f"Error generating summary: {e}")
         return f"Failed to generate summary: {str(e)}"
