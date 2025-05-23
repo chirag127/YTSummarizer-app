@@ -35,7 +35,7 @@ import LoadingIndicator from "../components/qa/LoadingIndicator";
 import ErrorDisplay from "../components/qa/ErrorDisplay";
 import NoTranscriptError from "../components/qa/NoTranscriptError";
 import InitialLoading from "../components/qa/InitialLoading";
-import markdownStyles from "../components/qa/MarkdownStyles";
+import getMarkdownStyles from "../components/qa/MarkdownStyles";
 
 const QAScreen = ({ route, navigation }) => {
     // Get video info from route params
@@ -43,6 +43,9 @@ const QAScreen = ({ route, navigation }) => {
 
     // Get theme colors
     const { colors } = useTheme();
+
+    // Get markdown styles with theme colors
+    const markdownStylesWithTheme = getMarkdownStyles(colors);
 
     // Use themed styles
     const styles = useThemedStyles((colors) => ({
@@ -774,7 +777,7 @@ const QAScreen = ({ route, navigation }) => {
                             <Ionicons
                                 name="cloud-offline-outline"
                                 size={16}
-                                color={COLORS.error}
+                                color={colors.error}
                             />
                             <Text style={styles.offlineText}>Offline</Text>
                         </View>
@@ -874,7 +877,7 @@ const QAScreen = ({ route, navigation }) => {
                             currentWord={currentWord}
                             currentSentence={currentSentence}
                             formatDateWithTimeZone={formatDateWithTimeZone}
-                            markdownStyles={markdownStyles}
+                            markdownStyles={markdownStylesWithTheme}
                             messageRefs={messageRefs}
                             sentenceRefs={sentenceRefs}
                             wordRefs={wordRefs}

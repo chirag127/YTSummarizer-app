@@ -3,7 +3,9 @@ import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import PropTypes from "prop-types";
 
-import { COLORS, SPACING, FONT_SIZES } from "../../constants";
+import { SPACING, FONT_SIZES } from "../../constants";
+import { useTheme } from "../../context/ThemeContext";
+import useThemedStyles from "../../hooks/useThemedStyles";
 
 /**
  * ActionButtons component displays the action buttons for the summary
@@ -36,13 +38,41 @@ const ActionButtons = ({
     onNewType,
     onAskAI,
 }) => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        actionButtonsContainer: {
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "space-around",
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            paddingVertical: SPACING.md,
+            backgroundColor: colors.background,
+        },
+        actionButton: {
+            alignItems: "center",
+            justifyContent: "center",
+            padding: SPACING.sm,
+            minWidth: 70,
+            marginHorizontal: 2,
+            marginVertical: 4,
+        },
+        actionButtonText: {
+            fontSize: FONT_SIZES.xs,
+            color: colors.text,
+            marginTop: 4,
+        },
+    }));
     return (
         <View style={styles.actionButtonsContainer}>
             <TouchableOpacity style={styles.actionButton} onPress={onPlayPause}>
                 <Ionicons
                     name={isPlaying ? "pause-circle" : "play-circle"}
                     size={24}
-                    color={COLORS.primary}
+                    color={colors.primary}
                 />
                 <Text style={styles.actionButtonText}>
                     {isPlaying ? "Pause" : "Read Aloud"}
@@ -56,7 +86,7 @@ const ActionButtons = ({
                 <Ionicons
                     name={showPlainText ? "document" : "document-text"}
                     size={24}
-                    color={COLORS.primary}
+                    color={colors.primary}
                 />
                 <Text style={styles.actionButtonText}>
                     {showPlainText ? "Show Markdown" : "Show Text"}
@@ -67,7 +97,7 @@ const ActionButtons = ({
                 <Ionicons
                     name="share-social-outline"
                     size={24}
-                    color={COLORS.primary}
+                    color={colors.primary}
                 />
                 <Text style={styles.actionButtonText}>Share</Text>
             </TouchableOpacity>
@@ -76,7 +106,7 @@ const ActionButtons = ({
                 <Ionicons
                     name="copy-outline"
                     size={24}
-                    color={COLORS.primary}
+                    color={colors.primary}
                 />
                 <Text style={styles.actionButtonText}>Copy</Text>
             </TouchableOpacity>
@@ -88,7 +118,7 @@ const ActionButtons = ({
                 <Ionicons
                     name={isStarred ? "star" : "star-outline"}
                     size={24}
-                    color={isStarred ? COLORS.warning : COLORS.primary}
+                    color={isStarred ? colors.warning : colors.primary}
                 />
                 <Text style={styles.actionButtonText}>
                     {isStarred ? "Starred" : "Star"}
@@ -103,12 +133,12 @@ const ActionButtons = ({
                 <Ionicons
                     name="refresh-outline"
                     size={24}
-                    color={isLoading ? COLORS.disabled : COLORS.primary}
+                    color={isLoading ? colors.disabled : colors.primary}
                 />
                 <Text
                     style={[
                         styles.actionButtonText,
-                        isLoading && { color: COLORS.disabled },
+                        isLoading && { color: colors.disabled },
                     ]}
                 >
                     Regenerate
@@ -119,7 +149,7 @@ const ActionButtons = ({
                 <Ionicons
                     name="add-circle-outline"
                     size={24}
-                    color={COLORS.primary}
+                    color={colors.primary}
                 />
                 <Text style={styles.actionButtonText}>New Type</Text>
             </TouchableOpacity>
@@ -128,7 +158,7 @@ const ActionButtons = ({
                 <Ionicons
                     name="chatbubble-outline"
                     size={24}
-                    color={COLORS.primary}
+                    color={colors.primary}
                 />
                 <Text style={styles.actionButtonText}>Ask AI</Text>
             </TouchableOpacity>
@@ -150,30 +180,5 @@ ActionButtons.propTypes = {
     onNewType: PropTypes.func.isRequired,
     onAskAI: PropTypes.func.isRequired,
 };
-
-const styles = StyleSheet.create({
-    actionButtonsContainer: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        justifyContent: "space-around",
-        borderTopWidth: 1,
-        borderTopColor: COLORS.border,
-        paddingVertical: SPACING.md,
-        backgroundColor: COLORS.background,
-    },
-    actionButton: {
-        alignItems: "center",
-        justifyContent: "center",
-        padding: SPACING.sm,
-        minWidth: 70,
-        marginHorizontal: 2,
-        marginVertical: 4,
-    },
-    actionButtonText: {
-        fontSize: FONT_SIZES.xs,
-        color: COLORS.text,
-        marginTop: 4,
-    },
-});
 
 export default ActionButtons;

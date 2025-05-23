@@ -7,15 +7,16 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import useThemedStyles from "../hooks/useThemedStyles";
+import { SPACING, FONT_SIZES } from "../constants";
 
 const ServerStatusIndicator = ({ status, message, autoHide = true }) => {
-    const { colors } = useTheme();
     const [visible, setVisible] = useState(false);
     const translateY = new Animated.Value(-50);
+    const { colors } = useTheme();
 
     // Use themed styles
     const styles = useThemedStyles((colors) => ({
@@ -24,17 +25,17 @@ const ServerStatusIndicator = ({ status, message, autoHide = true }) => {
             top: 0,
             left: 0,
             right: 0,
-            padding: 5,
+            padding: SPACING.xs,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 999,
         },
         text: {
-            color: "#FFFFFF",
-            marginLeft: 5,
+            color: colors.background,
+            marginLeft: SPACING.xs,
             fontWeight: "500",
-            fontSize: 12,
+            fontSize: FONT_SIZES.xs,
         },
     }));
 
@@ -127,7 +128,7 @@ const ServerStatusIndicator = ({ status, message, autoHide = true }) => {
                 },
             ]}
         >
-            <Ionicons name={iconName} size={16} color="#FFFFFF" />
+            <Ionicons name={iconName} size={16} color={colors.background} />
             <Text style={styles.text}>
                 {message || "Connecting to server..."}
             </Text>

@@ -29,7 +29,88 @@ const OtherSummaries = ({
     formatDateWithTimeZone,
     initiallyExpanded = false,
 }) => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // State
     const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        otherSummariesContainer: {
+            backgroundColor: colors.surface,
+            borderRadius: 8,
+            marginBottom: SPACING.lg,
+            overflow: "hidden",
+        },
+        otherSummariesHeader: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: SPACING.md,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+        },
+        otherSummariesTitle: {
+            fontSize: FONT_SIZES.md,
+            fontWeight: "bold",
+            color: colors.text,
+        },
+        loadingContainer: {
+            padding: SPACING.md,
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "row",
+        },
+        loadingText: {
+            fontSize: FONT_SIZES.sm,
+            color: colors.textSecondary,
+            marginLeft: SPACING.sm,
+        },
+        otherSummariesList: {
+            maxHeight: 300,
+        },
+        otherSummaryItem: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: SPACING.sm,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+        },
+        otherSummaryInfo: {
+            flex: 1,
+        },
+        otherSummaryBadges: {
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 4,
+            gap: 8,
+        },
+        badge: {
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+        },
+        typeBadge: {
+            backgroundColor: colors.primary + "80", // 50% opacity
+        },
+        lengthBadge: {
+            backgroundColor: colors.secondary + "80", // 50% opacity
+        },
+        badgeText: {
+            fontSize: FONT_SIZES.xs,
+            color: colors.background,
+            fontWeight: "500",
+        },
+        otherSummaryDate: {
+            fontSize: FONT_SIZES.xs,
+            color: colors.textSecondary,
+        },
+    }));
 
     if (summaries.length === 0) return null;
 
@@ -43,14 +124,14 @@ const OtherSummaries = ({
                     <Ionicons
                         name={isExpanded ? "chevron-up" : "chevron-down"}
                         size={24}
-                        color={COLORS.primary}
+                        color={colors.primary}
                     />
                 </TouchableOpacity>
             </View>
 
             {isLoading && (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={COLORS.primary} />
+                    <ActivityIndicator size="small" color={colors.primary} />
                     <Text style={styles.loadingText}>Loading summaries...</Text>
                 </View>
             )}
@@ -91,7 +172,7 @@ const OtherSummaries = ({
                             <Ionicons
                                 name="chevron-forward"
                                 size={20}
-                                color={COLORS.textSecondary}
+                                color={colors.textSecondary}
                             />
                         </TouchableOpacity>
                     )}
@@ -111,81 +192,5 @@ OtherSummaries.propTypes = {
     formatDateWithTimeZone: PropTypes.func.isRequired,
     initiallyExpanded: PropTypes.bool,
 };
-
-const styles = StyleSheet.create({
-    otherSummariesContainer: {
-        backgroundColor: COLORS.surface,
-        borderRadius: 8,
-        marginBottom: SPACING.lg,
-        overflow: "hidden",
-    },
-    otherSummariesHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: SPACING.md,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-    },
-    otherSummariesTitle: {
-        fontSize: FONT_SIZES.md,
-        fontWeight: "bold",
-        color: COLORS.text,
-    },
-    loadingContainer: {
-        padding: SPACING.md,
-        alignItems: "center",
-        justifyContent: "center",
-        flexDirection: "row",
-    },
-    loadingText: {
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.textSecondary,
-        marginLeft: SPACING.sm,
-    },
-    otherSummariesList: {
-        maxHeight: 300,
-    },
-    otherSummaryItem: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: SPACING.sm,
-        paddingHorizontal: SPACING.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-    },
-    otherSummaryInfo: {
-        flex: 1,
-    },
-    otherSummaryBadges: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 4,
-        gap: 8,
-    },
-    badge: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    typeBadge: {
-        backgroundColor: COLORS.primary,
-    },
-    lengthBadge: {
-        backgroundColor: COLORS.secondary,
-    },
-    badgeText: {
-        fontSize: FONT_SIZES.xs,
-        color: "white",
-        fontWeight: "500",
-    },
-    otherSummaryDate: {
-        fontSize: FONT_SIZES.xs,
-        color: COLORS.textSecondary,
-    },
-});
 
 export default OtherSummaries;

@@ -1,10 +1,34 @@
 import React from "react";
-import { StyleSheet, TouchableOpacity, Text, Alert } from "react-native";
+import { TouchableOpacity, Text, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
-import { COLORS, SPACING, FONT_SIZES } from "../../constants";
+import { SPACING, FONT_SIZES } from "../../constants";
+import { useTheme } from "../../context/ThemeContext";
+import useThemedStyles from "../../hooks/useThemedStyles";
 
 const TTSTestButton = ({ settings, isSaving }) => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        testButton: {
+            backgroundColor: colors.primary,
+            borderRadius: 8,
+            paddingVertical: SPACING.md,
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+            marginBottom: SPACING.xl,
+        },
+        testButtonText: {
+            color: colors.background,
+            fontSize: FONT_SIZES.md,
+            fontWeight: "600",
+            marginLeft: SPACING.sm,
+        },
+    }));
+
     // Test TTS
     const testTTS = async () => {
         try {
@@ -29,32 +53,10 @@ const TTSTestButton = ({ settings, isSaving }) => {
             onPress={testTTS}
             disabled={isSaving}
         >
-            <Ionicons
-                name="volume-high"
-                size={20}
-                color={COLORS.background}
-            />
+            <Ionicons name="volume-high" size={20} color={colors.background} />
             <Text style={styles.testButtonText}>Test Voice Settings</Text>
         </TouchableOpacity>
     );
 };
-
-const styles = StyleSheet.create({
-    testButton: {
-        backgroundColor: COLORS.primary,
-        borderRadius: 8,
-        paddingVertical: SPACING.md,
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: SPACING.xl,
-    },
-    testButtonText: {
-        color: COLORS.background,
-        fontSize: FONT_SIZES.md,
-        fontWeight: "600",
-        marginLeft: SPACING.sm,
-    },
-});
 
 export default TTSTestButton;

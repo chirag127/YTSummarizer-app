@@ -1,9 +1,11 @@
 import React from "react";
-import { View, Text, StyleSheet, Button } from "react-native";
+import { View, Text, Button } from "react-native";
 import { COLORS, SPACING, FONT_SIZES } from "../constants";
 
-// We're reverting back to using COLORS from constants to avoid the circular dependency
+// We need to use COLORS from constants in ErrorBoundary to avoid circular dependency
 // with ThemeContext, which would cause the error when the app first loads
+// Note: We can't use useTheme or useThemedStyles here because this is a class component
+// and it needs to work even if ThemeContext is not available
 class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props);
@@ -27,11 +29,37 @@ class ErrorBoundary extends React.Component {
 
     render() {
         if (this.state.hasError) {
-            // Render fallback UI
+            // Render fallback UI with inline styles
+            // We use inline styles here because this is a class component
+            // and we can't use hooks like useTheme or useThemedStyles
             return (
-                <View style={styles.container}>
-                    <Text style={styles.title}>Something went wrong</Text>
-                    <Text style={styles.message}>
+                <View
+                    style={{
+                        flex: 1,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: SPACING.lg,
+                        backgroundColor: COLORS.background,
+                    }}
+                >
+                    <Text
+                        style={{
+                            fontSize: FONT_SIZES.xl,
+                            fontWeight: "bold",
+                            marginBottom: SPACING.md,
+                            color: COLORS.error,
+                        }}
+                    >
+                        Something went wrong
+                    </Text>
+                    <Text
+                        style={{
+                            fontSize: FONT_SIZES.md,
+                            textAlign: "center",
+                            marginBottom: SPACING.lg,
+                            color: COLORS.text,
+                        }}
+                    >
                         {this.state.error?.toString() ||
                             "An unexpected error occurred"}
                     </Text>
@@ -47,27 +75,5 @@ class ErrorBoundary extends React.Component {
         return this.props.children;
     }
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: SPACING.lg,
-        backgroundColor: COLORS.background,
-    },
-    title: {
-        fontSize: FONT_SIZES.xl,
-        fontWeight: "bold",
-        marginBottom: SPACING.md,
-        color: COLORS.error,
-    },
-    message: {
-        fontSize: FONT_SIZES.md,
-        textAlign: "center",
-        marginBottom: SPACING.lg,
-        color: COLORS.text,
-    },
-});
 
 export default ErrorBoundary;
