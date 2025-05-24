@@ -114,17 +114,12 @@ async def generate_summary(transcript: str, summary_type: SummaryType, summary_l
             logger.warning(f"Error with primary model: {error_message}")
 
             # Check if it's a service unavailable error
-            generate_content_config = types.GenerateContentConfig(
-            response_mime_type="text/plain",
-            )
             logger.info(f"Primary model unavailable, trying fallback model: {fallback_model}")
             try:
+                generate_content_config = types.GenerateContentConfig(response_mime_type="text/plain")
+
                 # Try with fallback model
-                response = client.models.generate_content(
-                    model=fallback_model,
-                    contents=contents,
-                    config=generate_content_config
-                )
+                response = client.models.generate_content(model=fallback_model, contents=contents, config=generate_content_config)
                 logger.info("Successfully generated summary with fallback model")
                 return response.text
             except Exception as fallback_error:

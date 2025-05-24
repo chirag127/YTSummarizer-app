@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-    StyleSheet,
     View,
     Text,
     TouchableOpacity,
@@ -11,9 +10,222 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import * as apiKeyService from "../../services/apiKeyService";
-import { COLORS, SPACING, FONT_SIZES, API_KEY_SELECTION_MODES } from "../../constants";
+import { SPACING, FONT_SIZES, API_KEY_SELECTION_MODES } from "../../constants";
+import { useTheme } from "../../context/ThemeContext";
+import useThemedStyles from "../../hooks/useThemedStyles";
 
 const ApiKeySection = () => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        settingSection: {
+            marginBottom: SPACING.xl,
+            backgroundColor: colors.surface,
+            borderRadius: 8,
+            padding: SPACING.md,
+        },
+        settingTitle: {
+            fontSize: FONT_SIZES.lg,
+            fontWeight: "600",
+            color: colors.text,
+            marginBottom: SPACING.xs,
+        },
+        settingDescription: {
+            fontSize: FONT_SIZES.sm,
+            color: colors.textSecondary,
+            marginBottom: SPACING.md,
+        },
+        apiKeySelectionContainer: {
+            marginBottom: SPACING.md,
+        },
+        apiKeySelectionTitle: {
+            fontSize: FONT_SIZES.md,
+            fontWeight: "600",
+            color: colors.text,
+            marginBottom: SPACING.sm,
+        },
+        apiKeySelectionOptions: {
+            flexDirection: "row",
+            flexWrap: "wrap",
+        },
+        apiKeySelectionOption: {
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: SPACING.md,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginRight: SPACING.sm,
+            marginBottom: SPACING.sm,
+            backgroundColor: colors.background,
+        },
+        apiKeySelectionOptionSelected: {
+            backgroundColor: colors.primary,
+            borderColor: colors.primary,
+        },
+        apiKeySelectionOptionText: {
+            fontSize: FONT_SIZES.sm,
+            color: colors.text,
+        },
+        apiKeySelectionOptionTextSelected: {
+            color: colors.background,
+        },
+        apiKeyItemContainer: {
+            backgroundColor: colors.background,
+            borderRadius: 8,
+            padding: SPACING.md,
+            marginBottom: SPACING.md,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        apiKeyItemHeader: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: SPACING.sm,
+        },
+        apiKeyItemLabelContainer: {
+            flexDirection: "row",
+            alignItems: "center",
+        },
+        apiKeyItemLabel: {
+            fontSize: FONT_SIZES.md,
+            fontWeight: "600",
+            color: colors.text,
+        },
+        activeKeyIndicator: {
+            backgroundColor: colors.success,
+            paddingHorizontal: SPACING.sm,
+            paddingVertical: 2,
+            borderRadius: 12,
+            marginLeft: SPACING.sm,
+        },
+        activeKeyIndicatorText: {
+            fontSize: FONT_SIZES.xs,
+            color: colors.background,
+            fontWeight: "500",
+        },
+        setActiveButton: {
+            backgroundColor: colors.primary,
+            paddingHorizontal: SPACING.sm,
+            paddingVertical: SPACING.xs,
+            borderRadius: 16,
+        },
+        setActiveButtonText: {
+            fontSize: FONT_SIZES.xs,
+            color: colors.background,
+            fontWeight: "500",
+        },
+        apiKeyInputContainer: {
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 8,
+            marginBottom: SPACING.sm,
+            backgroundColor: colors.surface,
+        },
+        apiKeyInput: {
+            flex: 1,
+            paddingVertical: SPACING.md,
+            paddingHorizontal: SPACING.md,
+            color: colors.text,
+            fontSize: FONT_SIZES.md,
+        },
+        visibilityButton: {
+            paddingHorizontal: SPACING.md,
+            justifyContent: "center",
+        },
+        apiKeyButtonsContainer: {
+            flexDirection: "row",
+        },
+        apiKeyButton: {
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            marginRight: SPACING.md,
+        },
+        saveButton: {
+            backgroundColor: colors.primary,
+        },
+        testButton: {
+            backgroundColor: colors.success,
+        },
+        clearButton: {
+            backgroundColor: colors.error,
+        },
+        newApiKeyContainer: {
+            backgroundColor: colors.background,
+            borderRadius: 8,
+            padding: SPACING.md,
+            marginBottom: SPACING.md,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        cancelButton: {
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+        },
+        addApiKeyButton: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.primary,
+            paddingVertical: SPACING.md,
+            paddingHorizontal: SPACING.lg,
+            borderRadius: 8,
+            marginBottom: SPACING.md,
+        },
+        addApiKeyButtonText: {
+            color: colors.background,
+            fontWeight: "600",
+            marginLeft: SPACING.sm,
+        },
+        getApiKeyButton: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.accent,
+            paddingVertical: SPACING.md,
+            paddingHorizontal: SPACING.lg,
+            borderRadius: 8,
+        },
+        getApiKeyButtonText: {
+            color: colors.background,
+            fontWeight: "600",
+            marginLeft: SPACING.sm,
+        },
+        getApiKeyLink: {
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: SPACING.md,
+        },
+        getApiKeyText: {
+            color: colors.primary,
+            fontSize: FONT_SIZES.sm,
+            marginRight: SPACING.xs,
+            textDecorationLine: "underline",
+        },
+        apiKeyInfoContainer: {
+            flexDirection: "row",
+            backgroundColor: colors.infoBackground,
+            padding: SPACING.md,
+            borderRadius: 8,
+            alignItems: "flex-start",
+        },
+        apiKeyInfoText: {
+            flex: 1,
+            fontSize: FONT_SIZES.sm,
+            color: colors.textSecondary,
+            marginLeft: SPACING.sm,
+        },
+    }));
+
     // API Key state
     const [apiKeys, setApiKeys] = useState([]);
     const [activeKeyIndex, setActiveKeyIndex] = useState(-1);
@@ -383,13 +595,9 @@ const ApiKeySection = () => {
                             index !== activeKeyIndex && (
                                 <TouchableOpacity
                                     style={styles.setActiveButton}
-                                    onPress={() =>
-                                        handleSetActiveApiKey(index)
-                                    }
+                                    onPress={() => handleSetActiveApiKey(index)}
                                 >
-                                    <Text
-                                        style={styles.setActiveButtonText}
-                                    >
+                                    <Text style={styles.setActiveButtonText}>
                                         Set as Active
                                     </Text>
                                 </TouchableOpacity>
@@ -404,7 +612,7 @@ const ApiKeySection = () => {
                                 handleApiKeyChange(text, index)
                             }
                             placeholder="Enter your Gemini API key"
-                            placeholderTextColor={COLORS.textSecondary}
+                            placeholderTextColor={colors.textSecondary}
                             secureTextEntry={!apiKeyVisible}
                             autoCapitalize="none"
                             autoCorrect={false}
@@ -416,7 +624,7 @@ const ApiKeySection = () => {
                             <Ionicons
                                 name={apiKeyVisible ? "eye-off" : "eye"}
                                 size={24}
-                                color={COLORS.textSecondary}
+                                color={colors.textSecondary}
                             />
                         </TouchableOpacity>
                     </View>
@@ -430,13 +638,13 @@ const ApiKeySection = () => {
                             {isSaving ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             ) : (
                                 <Ionicons
                                     name="save"
                                     size={22}
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             )}
                         </TouchableOpacity>
@@ -449,29 +657,26 @@ const ApiKeySection = () => {
                             {isTestingApiKey ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             ) : (
                                 <Ionicons
                                     name="checkmark-circle"
                                     size={22}
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             )}
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[
-                                styles.apiKeyButton,
-                                styles.clearButton,
-                            ]}
+                            style={[styles.apiKeyButton, styles.clearButton]}
                             onPress={() => handleClearApiKey(index)}
                             disabled={isSaving}
                         >
                             <Ionicons
                                 name="trash"
                                 size={22}
-                                color={COLORS.background}
+                                color={colors.background}
                             />
                         </TouchableOpacity>
                     </View>
@@ -482,9 +687,7 @@ const ApiKeySection = () => {
             {isAddingNewKey ? (
                 <View style={styles.newApiKeyContainer}>
                     <View style={styles.apiKeyItemHeader}>
-                        <Text style={styles.apiKeyItemLabel}>
-                            New API Key
-                        </Text>
+                        <Text style={styles.apiKeyItemLabel}>New API Key</Text>
                         <TouchableOpacity
                             style={styles.cancelButton}
                             onPress={handleCancelAddApiKey}
@@ -492,7 +695,7 @@ const ApiKeySection = () => {
                             <Ionicons
                                 name="close"
                                 size={22}
-                                color={COLORS.error}
+                                color={colors.error}
                             />
                         </TouchableOpacity>
                     </View>
@@ -503,7 +706,7 @@ const ApiKeySection = () => {
                             value={newApiKey}
                             onChangeText={handleNewApiKeyChange}
                             placeholder="Enter your Gemini API key"
-                            placeholderTextColor={COLORS.textSecondary}
+                            placeholderTextColor={colors.textSecondary}
                             secureTextEntry={!apiKeyVisible}
                             autoCapitalize="none"
                             autoCorrect={false}
@@ -515,7 +718,7 @@ const ApiKeySection = () => {
                             <Ionicons
                                 name={apiKeyVisible ? "eye-off" : "eye"}
                                 size={24}
-                                color={COLORS.textSecondary}
+                                color={colors.textSecondary}
                             />
                         </TouchableOpacity>
                     </View>
@@ -529,13 +732,13 @@ const ApiKeySection = () => {
                             {isSaving ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             ) : (
                                 <Ionicons
                                     name="save"
                                     size={22}
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             )}
                         </TouchableOpacity>
@@ -548,13 +751,13 @@ const ApiKeySection = () => {
                             {isTestingApiKey ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             ) : (
                                 <Ionicons
                                     name="checkmark-circle"
                                     size={22}
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             )}
                         </TouchableOpacity>
@@ -568,7 +771,7 @@ const ApiKeySection = () => {
                     <Ionicons
                         name="add-circle"
                         size={20}
-                        color={COLORS.primary}
+                        color={colors.background}
                     />
                     <Text style={styles.addApiKeyButtonText}>
                         Add Another API Key
@@ -586,7 +789,7 @@ const ApiKeySection = () => {
                 <Ionicons
                     name="open-outline"
                     size={16}
-                    color={COLORS.primary}
+                    color={colors.primary}
                 />
             </TouchableOpacity>
 
@@ -594,220 +797,17 @@ const ApiKeySection = () => {
                 <Ionicons
                     name="information-circle"
                     size={20}
-                    color={COLORS.textSecondary}
+                    color={colors.textSecondary}
                 />
                 <Text style={styles.apiKeyInfoText}>
                     Using your own API keys will count against your personal
-                    quota. Your keys are stored securely on your device and
-                    are never shared. Adding multiple keys can help
-                    distribute usage and avoid rate limits.
+                    quota. Your keys are stored securely on your device and are
+                    never shared. Adding multiple keys can help distribute usage
+                    and avoid rate limits.
                 </Text>
             </View>
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    settingSection: {
-        marginBottom: SPACING.xl,
-        backgroundColor: COLORS.surface,
-        borderRadius: 8,
-        padding: SPACING.md,
-    },
-    settingTitle: {
-        fontSize: FONT_SIZES.lg,
-        fontWeight: "600",
-        color: COLORS.text,
-        marginBottom: SPACING.xs,
-    },
-    settingDescription: {
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.textSecondary,
-        marginBottom: SPACING.md,
-    },
-    apiKeySelectionContainer: {
-        marginBottom: SPACING.md,
-    },
-    apiKeySelectionTitle: {
-        fontSize: FONT_SIZES.md,
-        fontWeight: "500",
-        color: COLORS.text,
-        marginBottom: SPACING.sm,
-    },
-    apiKeySelectionOptions: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-    },
-    apiKeySelectionOption: {
-        paddingVertical: SPACING.sm,
-        paddingHorizontal: SPACING.md,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        marginRight: SPACING.sm,
-        marginBottom: SPACING.sm,
-        backgroundColor: COLORS.background,
-    },
-    apiKeySelectionOptionSelected: {
-        backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary,
-    },
-    apiKeySelectionOptionText: {
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.text,
-    },
-    apiKeySelectionOptionTextSelected: {
-        color: COLORS.background,
-    },
-    apiKeyItemContainer: {
-        marginBottom: SPACING.lg,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        borderRadius: 8,
-        padding: SPACING.md,
-        backgroundColor: COLORS.background,
-    },
-    apiKeyItemHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: SPACING.sm,
-    },
-    apiKeyItemLabelContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    apiKeyItemLabel: {
-        fontSize: FONT_SIZES.md,
-        fontWeight: "500",
-        color: COLORS.text,
-    },
-    activeKeyIndicator: {
-        backgroundColor: COLORS.success,
-        paddingVertical: SPACING.xs / 2,
-        paddingHorizontal: SPACING.sm,
-        borderRadius: 12,
-        marginLeft: SPACING.sm,
-    },
-    activeKeyIndicatorText: {
-        color: COLORS.background,
-        fontSize: FONT_SIZES.xs,
-        fontWeight: "bold",
-    },
-    setActiveButton: {
-        backgroundColor: COLORS.surface,
-        paddingVertical: SPACING.xs,
-        paddingHorizontal: SPACING.sm,
-        borderRadius: 4,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    setActiveButtonText: {
-        color: COLORS.primary,
-        fontSize: FONT_SIZES.xs,
-        fontWeight: "500",
-    },
-    apiKeyInputContainer: {
-        flexDirection: "row",
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        borderRadius: 8,
-        marginBottom: SPACING.md,
-        backgroundColor: COLORS.background,
-    },
-    apiKeyInput: {
-        flex: 1,
-        paddingVertical: SPACING.md,
-        paddingHorizontal: SPACING.md,
-        color: COLORS.text,
-        fontSize: FONT_SIZES.md,
-    },
-    visibilityButton: {
-        padding: SPACING.md,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    apiKeyButtonsContainer: {
-        flexDirection: "row",
-        marginBottom: SPACING.md,
-    },
-    apiKeyButton: {
-        alignItems: "center",
-        justifyContent: "center",
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        marginRight: SPACING.md,
-    },
-    saveButton: {
-        backgroundColor: COLORS.primary,
-    },
-    testButton: {
-        backgroundColor: COLORS.success,
-    },
-    clearButton: {
-        backgroundColor: COLORS.error,
-    },
-    newApiKeyContainer: {
-        marginBottom: SPACING.lg,
-        borderWidth: 1,
-        borderColor: COLORS.primary,
-        borderRadius: 8,
-        padding: SPACING.md,
-        backgroundColor: COLORS.background,
-    },
-    cancelButton: {
-        alignItems: "center",
-        justifyContent: "center",
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: COLORS.surface,
-        borderWidth: 1,
-        borderColor: COLORS.error,
-    },
-    addApiKeyButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: SPACING.md,
-        marginBottom: SPACING.md,
-        backgroundColor: COLORS.surface,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: COLORS.primary,
-        borderStyle: "dashed",
-    },
-    addApiKeyButtonText: {
-        color: COLORS.primary,
-        fontSize: FONT_SIZES.md,
-        fontWeight: "500",
-        marginLeft: SPACING.sm,
-    },
-    getApiKeyLink: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: SPACING.md,
-    },
-    getApiKeyText: {
-        color: COLORS.primary,
-        fontSize: FONT_SIZES.sm,
-        marginRight: SPACING.xs,
-        textDecorationLine: "underline",
-    },
-    apiKeyInfoContainer: {
-        flexDirection: "row",
-        backgroundColor: COLORS.infoBackground,
-        padding: SPACING.md,
-        borderRadius: 8,
-        alignItems: "flex-start",
-    },
-    apiKeyInfoText: {
-        flex: 1,
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.textSecondary,
-        marginLeft: SPACING.sm,
-    },
-});
 
 export default ApiKeySection;
