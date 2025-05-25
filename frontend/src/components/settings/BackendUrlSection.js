@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-    StyleSheet,
     View,
     Text,
     TouchableOpacity,
@@ -10,12 +9,101 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as apiConfigService from "../../services/apiConfigService";
-import { COLORS, SPACING, FONT_SIZES, API_BASE_URL } from "../../constants";
+import { SPACING, FONT_SIZES, API_BASE_URL } from "../../constants";
+import { useTheme } from "../../context/ThemeContext";
+import useThemedStyles from "../../hooks/useThemedStyles";
 
 /**
  * BackendUrlSection component for configuring the backend API URL
  */
 const BackendUrlSection = () => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        settingSection: {
+            marginBottom: SPACING.xl,
+            backgroundColor: colors.surface,
+            borderRadius: 8,
+            padding: SPACING.md,
+        },
+        settingTitle: {
+            fontSize: FONT_SIZES.lg,
+            fontWeight: "600",
+            color: colors.text,
+            marginBottom: SPACING.xs,
+        },
+        settingDescription: {
+            fontSize: FONT_SIZES.sm,
+            color: colors.textSecondary,
+            marginBottom: SPACING.md,
+        },
+        loader: {
+            marginVertical: SPACING.md,
+        },
+        urlInputContainer: {
+            flexDirection: "row",
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 8,
+            marginBottom: SPACING.md,
+            backgroundColor: colors.background,
+        },
+        urlInput: {
+            flex: 1,
+            paddingVertical: SPACING.md,
+            paddingHorizontal: SPACING.md,
+            color: colors.text,
+            fontSize: FONT_SIZES.md,
+        },
+        urlInputError: {
+            borderColor: colors.error,
+        },
+        errorText: {
+            color: colors.error,
+            fontSize: FONT_SIZES.sm,
+            marginBottom: SPACING.md,
+        },
+        urlButtonsContainer: {
+            flexDirection: "row",
+            marginBottom: SPACING.md,
+        },
+        urlButton: {
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            marginRight: SPACING.md,
+        },
+        saveButton: {
+            backgroundColor: colors.primary,
+        },
+        testButton: {
+            backgroundColor: colors.success,
+        },
+        resetButton: {
+            backgroundColor: colors.accent,
+        },
+        disabledButton: {
+            opacity: 0.5,
+        },
+        urlInfoContainer: {
+            flexDirection: "row",
+            backgroundColor: colors.infoBackground,
+            padding: SPACING.md,
+            borderRadius: 8,
+            alignItems: "flex-start",
+        },
+        urlInfoText: {
+            flex: 1,
+            fontSize: FONT_SIZES.sm,
+            color: colors.textSecondary,
+            marginLeft: SPACING.sm,
+        },
+    }));
+
     // State variables
     const [backendUrl, setBackendUrl] = useState("");
     const [originalUrl, setOriginalUrl] = useState("");
@@ -48,10 +136,12 @@ const BackendUrlSection = () => {
     const handleUrlChange = (text) => {
         setBackendUrl(text);
         setIsEditing(text !== originalUrl);
-        
+
         // Validate URL format
         if (text && !apiConfigService.isValidUrl(text)) {
-            setValidationError("Invalid URL format. URL must start with http:// or https://");
+            setValidationError(
+                "Invalid URL format. URL must start with http:// or https://"
+            );
         } else {
             setValidationError("");
         }
@@ -66,7 +156,9 @@ const BackendUrlSection = () => {
 
         setIsSaving(true);
         try {
-            const success = await apiConfigService.saveBaseUrl(backendUrl.trim());
+            const success = await apiConfigService.saveBaseUrl(
+                backendUrl.trim()
+            );
             if (success) {
                 setOriginalUrl(backendUrl.trim());
                 setIsEditing(false);
@@ -91,7 +183,9 @@ const BackendUrlSection = () => {
 
         setIsTesting(true);
         try {
-            const result = await apiConfigService.testBackendUrl(backendUrl.trim());
+            const result = await apiConfigService.testBackendUrl(
+                backendUrl.trim()
+            );
             if (result.isValid) {
                 Alert.alert("Success", "Connection to backend successful!");
             } else {
@@ -120,18 +214,31 @@ const BackendUrlSection = () => {
                     onPress: async () => {
                         setIsSaving(true);
                         try {
-                            const success = await apiConfigService.resetBaseUrl();
+                            const success =
+                                await apiConfigService.resetBaseUrl();
                             if (success) {
                                 setBackendUrl(API_BASE_URL);
                                 setOriginalUrl(API_BASE_URL);
                                 setIsEditing(false);
-                                Alert.alert("Success", "Backend URL reset to default.");
+                                Alert.alert(
+                                    "Success",
+                                    "Backend URL reset to default."
+                                );
                             } else {
-                                Alert.alert("Error", "Failed to reset backend URL.");
+                                Alert.alert(
+                                    "Error",
+                                    "Failed to reset backend URL."
+                                );
                             }
                         } catch (error) {
-                            console.error("Error resetting backend URL:", error);
-                            Alert.alert("Error", "Failed to reset backend URL.");
+                            console.error(
+                                "Error resetting backend URL:",
+                                error
+                            );
+                            Alert.alert(
+                                "Error",
+                                "Failed to reset backend URL."
+                            );
                         } finally {
                             setIsSaving(false);
                         }
@@ -145,14 +252,14 @@ const BackendUrlSection = () => {
         <View style={styles.settingSection}>
             <Text style={styles.settingTitle}>Backend URL Configuration</Text>
             <Text style={styles.settingDescription}>
-                Configure the URL for the backend API server. This should only be
-                changed if you are using a custom backend deployment.
+                Configure the URL for the backend API server. This should only
+                be changed if you are using a custom backend deployment.
             </Text>
 
             {isLoading ? (
                 <ActivityIndicator
                     size="small"
-                    color={COLORS.primary}
+                    color={colors.primary}
                     style={styles.loader}
                 />
             ) : (
@@ -166,7 +273,7 @@ const BackendUrlSection = () => {
                             value={backendUrl}
                             onChangeText={handleUrlChange}
                             placeholder="Enter backend URL"
-                            placeholderTextColor={COLORS.textSecondary}
+                            placeholderTextColor={colors.textSecondary}
                             autoCapitalize="none"
                             autoCorrect={false}
                             keyboardType="url"
@@ -182,7 +289,8 @@ const BackendUrlSection = () => {
                             style={[
                                 styles.urlButton,
                                 styles.saveButton,
-                                (!isEditing || validationError) && styles.disabledButton,
+                                (!isEditing || validationError) &&
+                                    styles.disabledButton,
                             ]}
                             onPress={handleSaveUrl}
                             disabled={!isEditing || validationError || isSaving}
@@ -190,13 +298,13 @@ const BackendUrlSection = () => {
                             {isSaving ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             ) : (
                                 <Ionicons
                                     name="save-outline"
                                     size={20}
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             )}
                         </TouchableOpacity>
@@ -213,13 +321,13 @@ const BackendUrlSection = () => {
                             {isTesting ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             ) : (
                                 <Ionicons
                                     name="checkmark-outline"
                                     size={20}
-                                    color={COLORS.background}
+                                    color={colors.background}
                                 />
                             )}
                         </TouchableOpacity>
@@ -232,7 +340,7 @@ const BackendUrlSection = () => {
                             <Ionicons
                                 name="refresh-outline"
                                 size={20}
-                                color={COLORS.background}
+                                color={colors.background}
                             />
                         </TouchableOpacity>
                     </View>
@@ -241,12 +349,13 @@ const BackendUrlSection = () => {
                         <Ionicons
                             name="information-circle"
                             size={20}
-                            color={COLORS.textSecondary}
+                            color={colors.textSecondary}
                         />
                         <Text style={styles.urlInfoText}>
-                            The backend URL is used for all API requests. Changing this
-                            will affect all app functionality. Make sure the URL is
-                            correct and the server is running before saving.
+                            The backend URL is used for all API requests.
+                            Changing this will affect all app functionality.
+                            Make sure the URL is correct and the server is
+                            running before saving.
                         </Text>
                     </View>
                 </>
@@ -254,88 +363,5 @@ const BackendUrlSection = () => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    settingSection: {
-        marginBottom: SPACING.xl,
-        backgroundColor: COLORS.surface,
-        borderRadius: 8,
-        padding: SPACING.md,
-    },
-    settingTitle: {
-        fontSize: FONT_SIZES.lg,
-        fontWeight: "600",
-        color: COLORS.text,
-        marginBottom: SPACING.xs,
-    },
-    settingDescription: {
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.textSecondary,
-        marginBottom: SPACING.md,
-    },
-    loader: {
-        marginVertical: SPACING.md,
-    },
-    urlInputContainer: {
-        flexDirection: "row",
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        borderRadius: 8,
-        marginBottom: SPACING.md,
-        backgroundColor: COLORS.background,
-    },
-    urlInput: {
-        flex: 1,
-        paddingVertical: SPACING.md,
-        paddingHorizontal: SPACING.md,
-        color: COLORS.text,
-        fontSize: FONT_SIZES.md,
-    },
-    urlInputError: {
-        borderColor: COLORS.error,
-    },
-    errorText: {
-        color: COLORS.error,
-        fontSize: FONT_SIZES.sm,
-        marginBottom: SPACING.md,
-    },
-    urlButtonsContainer: {
-        flexDirection: "row",
-        marginBottom: SPACING.md,
-    },
-    urlButton: {
-        alignItems: "center",
-        justifyContent: "center",
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        marginRight: SPACING.md,
-    },
-    saveButton: {
-        backgroundColor: COLORS.primary,
-    },
-    testButton: {
-        backgroundColor: COLORS.success,
-    },
-    resetButton: {
-        backgroundColor: COLORS.accent,
-    },
-    disabledButton: {
-        opacity: 0.5,
-    },
-    urlInfoContainer: {
-        flexDirection: "row",
-        backgroundColor: COLORS.infoBackground,
-        padding: SPACING.md,
-        borderRadius: 8,
-        alignItems: "flex-start",
-    },
-    urlInfoText: {
-        flex: 1,
-        fontSize: FONT_SIZES.sm,
-        color: COLORS.textSecondary,
-        marginLeft: SPACING.sm,
-    },
-});
 
 export default BackendUrlSection;

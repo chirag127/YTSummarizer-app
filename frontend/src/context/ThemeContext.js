@@ -70,20 +70,81 @@ const amoledTheme = {
     statusBar: "light", // StatusBar style
 };
 
-// Create the context
-const ThemeContext = createContext();
+// Create the context with default values
+const ThemeContext = createContext({
+    colors: {
+        primary: "#4285F4",
+        secondary: "#34A853",
+        accent: "#FBBC05",
+        warning: "#FBBC05",
+        error: "#EA4335",
+        success: "#34A853",
+        background: "#FFFFFF",
+        surface: "#F8F9FA",
+        text: "#202124",
+        textSecondary: "#5F6368",
+        border: "#DADCE0",
+        disabled: "#E8EAED",
+        infoBackground: "#E8F0FE",
+        card: "#FFFFFF",
+        statusBar: "dark",
+    },
+    themeSettings: {
+        themeType: THEME_TYPES.LIGHT,
+        useDeviceTheme: true,
+    },
+    updateThemeSettings: () => {},
+    getCurrentThemeType: () => THEME_TYPES.LIGHT,
+    themeTypes: THEME_TYPES,
+});
 
 // Custom hook to use the theme context
-export const useTheme = () => useContext(ThemeContext);
+export const useTheme = () => {
+    const context = useContext(ThemeContext);
+    if (!context) {
+        console.error(
+            "useTheme: No context found! Make sure component is wrapped in ThemeProvider"
+        );
+        // Return default theme instead of throwing error to prevent app crash
+        return {
+            colors: {
+                primary: "#4285F4",
+                secondary: "#34A853",
+                accent: "#FBBC05",
+                warning: "#FBBC05",
+                error: "#EA4335",
+                success: "#34A853",
+                background: "#FFFFFF",
+                surface: "#F8F9FA",
+                text: "#202124",
+                textSecondary: "#5F6368",
+                border: "#DADCE0",
+                disabled: "#E8EAED",
+                infoBackground: "#E8F0FE",
+                card: "#FFFFFF",
+                statusBar: "dark",
+            },
+            themeSettings: {
+                themeType: THEME_TYPES.LIGHT,
+                useDeviceTheme: true,
+            },
+            updateThemeSettings: () => {},
+            getCurrentThemeType: () => THEME_TYPES.LIGHT,
+            themeTypes: THEME_TYPES,
+        };
+    }
+    return context;
+};
 
 // Provider component
 export const ThemeProvider = ({ children }) => {
     // Get device color scheme
     const deviceTheme = useColorScheme();
-    
+
     // State for theme settings
     const [themeSettings, setThemeSettings] = useState({
-        themeType: deviceTheme === "dark" ? THEME_TYPES.DARK : THEME_TYPES.LIGHT, // Default to device theme
+        themeType:
+            deviceTheme === "dark" ? THEME_TYPES.DARK : THEME_TYPES.LIGHT, // Default to device theme
         useDeviceTheme: true, // Default to using device theme
     });
 
@@ -111,7 +172,9 @@ export const ThemeProvider = ({ children }) => {
     useEffect(() => {
         const loadThemeSettings = async () => {
             try {
-                const storedSettings = await AsyncStorage.getItem(THEME_SETTINGS_KEY);
+                const storedSettings = await AsyncStorage.getItem(
+                    THEME_SETTINGS_KEY
+                );
                 if (storedSettings) {
                     const parsedSettings = JSON.parse(storedSettings);
                     setThemeSettings(parsedSettings);
@@ -132,7 +195,10 @@ export const ThemeProvider = ({ children }) => {
     // Save theme settings to storage
     const saveThemeSettings = async (settings) => {
         try {
-            await AsyncStorage.setItem(THEME_SETTINGS_KEY, JSON.stringify(settings));
+            await AsyncStorage.setItem(
+                THEME_SETTINGS_KEY,
+                JSON.stringify(settings)
+            );
             setThemeSettings(settings);
         } catch (error) {
             console.error("Error saving theme settings:", error);
@@ -150,7 +216,9 @@ export const ThemeProvider = ({ children }) => {
     // Get current theme type
     const getCurrentThemeType = () => {
         if (themeSettings.useDeviceTheme) {
-            return deviceTheme === "dark" ? THEME_TYPES.DARK : THEME_TYPES.LIGHT;
+            return deviceTheme === "dark"
+                ? THEME_TYPES.DARK
+                : THEME_TYPES.LIGHT;
         }
         return themeSettings.themeType;
     };

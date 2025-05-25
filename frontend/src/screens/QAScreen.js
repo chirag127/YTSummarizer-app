@@ -795,7 +795,7 @@ const QAScreen = ({ route, navigation }) => {
                             <Ionicons
                                 name={isBeingSpoken ? "pause" : "volume-high"}
                                 size={18}
-                                color={COLORS.primary}
+                                color={colors.primary}
                             />
                         </TouchableOpacity>
                     )}
@@ -807,7 +807,7 @@ const QAScreen = ({ route, navigation }) => {
     // Render loading indicator
     const renderLoading = () => (
         <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.loadingText}>AI is thinking...</Text>
         </View>
     );
@@ -819,7 +819,7 @@ const QAScreen = ({ route, navigation }) => {
                 <Ionicons
                     name="alert-circle-outline"
                     size={20}
-                    color={COLORS.error}
+                    color={colors.error}
                 />
                 <Text style={styles.errorMessage}>{error.message}</Text>
             </View>
@@ -829,7 +829,7 @@ const QAScreen = ({ route, navigation }) => {
                 disabled={isRetrying}
             >
                 {isRetrying ? (
-                    <ActivityIndicator size="small" color={COLORS.background} />
+                    <ActivityIndicator size="small" color={colors.background} />
                 ) : (
                     <Text style={styles.retryButtonText}>Retry</Text>
                 )}

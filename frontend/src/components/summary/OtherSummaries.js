@@ -10,7 +10,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import PropTypes from "prop-types";
 
-import { COLORS, SPACING, FONT_SIZES } from "../../constants";
+import { SPACING, FONT_SIZES } from "../../constants";
+import { useTheme } from "../../context/ThemeContext";
+import useThemedStyles from "../../hooks/useThemedStyles";
 
 /**
  * OtherSummaries component displays a list of other summaries for the same video

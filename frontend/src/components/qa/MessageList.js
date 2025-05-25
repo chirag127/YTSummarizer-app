@@ -1,7 +1,9 @@
 import React from "react";
-import { StyleSheet, View, FlatList } from "react-native";
+import { View, FlatList } from "react-native";
 import PropTypes from "prop-types";
-import { COLORS, SPACING } from "../../constants";
+import { SPACING } from "../../constants";
+import { useTheme } from "../../context/ThemeContext";
+import useThemedStyles from "../../hooks/useThemedStyles";
 import MessageItem from "./MessageItem";
 import EmptyState from "./EmptyState";
 
@@ -41,6 +43,23 @@ const MessageList = ({
     sentenceRefs,
     wordRefs,
 }) => {
+    // Get theme colors
+    const { colors } = useTheme();
+
+    // Use themed styles
+    const styles = useThemedStyles((colors) => ({
+        messagesContainer: {
+            flex: 1,
+            backgroundColor: colors.background,
+            width: "100%",
+        },
+        messageList: {
+            padding: SPACING.md,
+            flexGrow: 1,
+            paddingBottom: SPACING.xl, // Add extra padding at the bottom to ensure messages aren't hidden behind the input
+        },
+    }));
+
     const renderItem = ({ item }) => (
         <MessageItem
             item={item}
@@ -93,18 +112,5 @@ MessageList.propTypes = {
     sentenceRefs: PropTypes.object.isRequired,
     wordRefs: PropTypes.object.isRequired,
 };
-
-const styles = StyleSheet.create({
-    messagesContainer: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-        width: "100%",
-    },
-    messageList: {
-        padding: SPACING.md,
-        flexGrow: 1,
-        paddingBottom: SPACING.xl, // Add extra padding at the bottom to ensure messages aren't hidden behind the input
-    },
-});
 
 export default MessageList;
