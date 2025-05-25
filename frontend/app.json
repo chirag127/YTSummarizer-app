@@ -6,7 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "jsEngine": "jsc",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -61,6 +65,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.chirag127.YTSummarizer2reactnativeexpoapp",
+      "jsEngine": "jsc",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
@@ -208,10 +213,12 @@
       }
     },
     "plugins": [
+      "expo-dev-client",
       "expo-localization",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-background-task"
+      "expo-background-task",
+      "expo-font"
     ]
   }
 }

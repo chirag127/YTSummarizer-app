@@ -5,10 +5,24 @@ module.exports = function (api) {
     const isProd = process.env.NODE_ENV === "production";
 
     return {
-        presets: ["babel-preset-expo"],
+        presets: [
+            [
+                "babel-preset-expo",
+                {
+                    jsxImportSource: "react",
+                    jsxRuntime: "automatic",
+                },
+            ],
+        ],
         plugins: [
             "react-native-reanimated/plugin",
-            "@babel/plugin-transform-runtime",
+            [
+                "@babel/plugin-transform-runtime",
+                {
+                    helpers: true,
+                    regenerator: true,
+                },
+            ],
         ],
         env: {
             production: {

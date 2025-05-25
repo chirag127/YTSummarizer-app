@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "jsEngine": "jsc"
+  },
+  "android": {
+    "jsEngine": "jsc"
+  }
+}
