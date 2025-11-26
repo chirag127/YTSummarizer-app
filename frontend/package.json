@@ -31,7 +31,7 @@
     "expo-task-manager": "~13.1.5",
     "expo-web-browser": "~14.1.6",
     "moment-timezone": "^0.5.48",
-    "react": "19.0.0",
+    "react": "19.2.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.2",
     "react-native-gesture-handler": "~2.24.0",
